@@ -11,6 +11,22 @@
 
 ---
 
+## Скриншоты
+
+| Рабочий стол | Телефонная книга |
+|---|---|
+| ![Desk](public/screenshots/desk.png) | ![Phonebook](public/screenshots/phonebook.png) |
+
+| Телетайп — коммутатор | Телефон — выбор канала |
+|---|---|
+| ![Teletype](public/screenshots/teletype.png) | ![Phone](public/screenshots/phone.png) |
+
+| Вход в систему | Регистрация |
+|---|---|
+| ![Login](public/screenshots/login.png) | ![Register](public/screenshots/register.png) |
+
+---
+
 ## Возможности
 
 - **Аутентификация** — юзернейм + пароль, bcrypt-хэши, JWT-сессии (NextAuth).
