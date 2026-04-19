@@ -19,19 +19,24 @@
 
 # production
 /build
+/dist
 
 # misc
 .DS_Store
 *.pem
+Thumbs.db
 
 # debug
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
+*.log
 
-# env files (can opt-in for committing if needed)
-.env*
+# env files — never commit secrets
+.env
+.env.*
+!.env.example
 
 # vercel
 .vercel
@@ -39,3 +44,30 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# IDE / editors
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# agent / tooling — contain local instructions & transcripts
+AGENTS.md
+CLAUDE.md
+.claude/
+.playwright-mcp/
+.cursor/
+.aider*
+
+# local data / backups
+*.sqlite
+*.sqlite3
+*.db
+*.dump
+*.bak
+/backups/
+
+# uploads (user-generated content, if any)
+/uploads/
+
+*.mp3
