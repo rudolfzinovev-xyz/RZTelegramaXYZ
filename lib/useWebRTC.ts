@@ -118,16 +118,15 @@ export function useWebRTC(socket: Socket | null, currentUserId: string) {
       const peer = new SimplePeer({
         initiator: true,
         stream,
-        trickle: true,
+        trickle: false,
         config: { iceServers: ICE_SERVERS },
       });
       peerRef.current = peer;
 
-      // Auto-cancel after 3 ring bursts (3 × 3200ms) if no answer
+      // Auto-cancel after 3 ring bursts if no answer
       const ringTimeout = setTimeout(() => {
         socket.off("call:answered");
         socket.off("call:rejected");
-        socket.off("call:ice-candidate");
         if (peerRef.current) {
           peerRef.current.destroy();
           peerRef.current = null;
@@ -139,25 +138,15 @@ export function useWebRTC(socket: Socket | null, currentUserId: string) {
         setRemoteUser(null);
       }, 3200 * 3);
 
-      let offerSent = false;
-      peer.on("signal", (data) => {
-        if (!offerSent && (data as any).type === "offer") {
-          offerSent = true;
-          socket.emit("call:initiate", {
-            receiverId: targetUser.id,
-            offer: data,
-            callerId: currentUserId,
-            callerName: "",
-            callerPhone: "",
-            callerLine: line ?? null,
-          });
-        } else if ((data as any).candidate) {
-          socket.emit("call:ice-candidate", { targetId: targetUser.id, candidate: data });
-        }
-      });
-
-      socket.on("call:ice-candidate", ({ candidate }: any) => {
-        if (peerRef.current) peerRef.current.signal(candidate);
+      peer.on("signal", (offer) => {
+        socket.emit("call:initiate", {
+          receiverId: targetUser.id,
+          offer,
+          callerId: currentUserId,
+          callerName: "",
+          callerPhone: "",
+          callerLine: line ?? null,
+        });
       });
 
       peer.on("stream", (remStream) => {
@@ -202,29 +191,21 @@ export function useWebRTC(socket: Socket | null, currentUserId: string) {
       const peer = new SimplePeer({
         initiator: false,
         stream,
-        trickle: true,
+        trickle: false,
         config: { iceServers: ICE_SERVERS },
       });
       peerRef.current = peer;
 
       peer.signal(pendingOfferRef.current);
 
-      let answerSent = false;
-      peer.on("signal", (data) => {
-        if (!answerSent && (data as any).type === "answer") {
-          answerSent = true;
-          socket.emit("call:answer", { callerId: remoteUser?.id, answer: data });
-        } else if ((data as any).candidate) {
-          socket.emit("call:ice-candidate", { targetId: remoteUser?.id, candidate: data });
-        }
+      peer.on("signal", (answer) => {
+        socket.emit("call:answer", { callerId: remoteUser?.id, answer });
       });
 
       peer.on("stream", (remStream) => {
         setRemoteStream(remStream);
         setCallState("connected");
       });
-
-      socket.on("call:ice-candidate", ({ candidate }: any) => peer.signal(candidate));
 
       peer.on("error", destroyPeer);
       peer.on("close", destroyPeer);
