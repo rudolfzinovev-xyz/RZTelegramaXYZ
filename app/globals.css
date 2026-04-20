@@ -24,7 +24,34 @@ body {
   overflow: hidden;
   height: 100vh;
   width: 100vw;
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
 }
+
+/* On narrow viewports the app is a stacked mobile UI — allow vertical scroll
+   and use dynamic viewport height (dvh) so the bottom nav isn't hidden behind
+   the iOS URL bar. */
+@media (max-width: 767px) {
+  html, body {
+    overflow: auto;
+    height: auto;
+    min-height: 100vh;
+    min-height: 100dvh;
+    width: 100%;
+  }
+}
+
+/* Safe-area padding helpers for iOS notch / home indicator */
+.pt-safe { padding-top: env(safe-area-inset-top); }
+.pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+
+/* Touch helpers */
+.tap-target { min-height: 44px; min-width: 44px; }
+.no-select { user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent; }
+
+/* Hide horizontal scrollbars on mobile pickers */
+.scroll-x-hidden::-webkit-scrollbar { display: none; }
+.scroll-x-hidden { scrollbar-width: none; -ms-overflow-style: none; }
 
 .font-typewriter {
   font-family: 'Special Elite', 'Courier New', monospace;

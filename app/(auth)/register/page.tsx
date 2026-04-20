@@ -62,9 +62,9 @@ export default function RegisterPage() {
   ];
 
   return (
-    <div className="min-h-screen desk-surface flex items-center justify-center py-8">
+    <div className="min-h-screen desk-surface flex items-center justify-center p-4 py-8">
       <div
-        className="relative bg-[#1a1008] rounded-lg p-8 w-96 desk-shadow"
+        className="relative bg-[#1a1008] rounded-lg p-6 sm:p-8 w-full max-w-sm desk-shadow"
         style={{ border: "3px solid #3a2a18" }}
       >
         <div
