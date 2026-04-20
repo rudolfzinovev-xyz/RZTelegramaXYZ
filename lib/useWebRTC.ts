@@ -101,6 +101,12 @@ export function useWebRTC(socket: Socket | null, currentUserId: string) {
     setRemoteUser(null);
   }, [localStream]);
 
+  const ICE_SERVERS = [
+    { urls: "stun:stun.l.google.com:19302" },
+    { urls: "stun:stun1.l.google.com:19302" },
+    { urls: "stun:stun.cloudflare.com:3478" },
+  ];
+
   const initiateCall = useCallback(async (targetUser: { id: string; name: string; phone: string }, line?: string) => {
     if (!socket) return;
     try {
@@ -112,14 +118,8 @@ export function useWebRTC(socket: Socket | null, currentUserId: string) {
       const peer = new SimplePeer({
         initiator: true,
         stream,
-        trickle: false,
-        config: {
-          iceServers: [
-            { urls: "stun:stun.l.google.com:19302" },
-            { urls: "stun:stun1.l.google.com:19302" },
-            { urls: "stun:stun.cloudflare.com:3478" },
-          ],
-        },
+        trickle: true,
+        config: { iceServers: ICE_SERVERS },
       });
       peerRef.current = peer;
 
@@ -127,6 +127,7 @@ export function useWebRTC(socket: Socket | null, currentUserId: string) {
       const ringTimeout = setTimeout(() => {
         socket.off("call:answered");
         socket.off("call:rejected");
+        socket.off("call:ice-candidate");
         if (peerRef.current) {
           peerRef.current.destroy();
           peerRef.current = null;
@@ -138,15 +139,25 @@ export function useWebRTC(socket: Socket | null, currentUserId: string) {
         setRemoteUser(null);
       }, 3200 * 3);
 
-      peer.on("signal", (offer) => {
-        socket.emit("call:initiate", {
-          receiverId: targetUser.id,
-          offer,
-          callerId: currentUserId,
-          callerName: "",
-          callerPhone: "",
-          callerLine: line ?? null,
-        });
+      let offerSent = false;
+      peer.on("signal", (data) => {
+        if (!offerSent && (data as any).type === "offer") {
+          offerSent = true;
+          socket.emit("call:initiate", {
+            receiverId: targetUser.id,
+            offer: data,
+            callerId: currentUserId,
+            callerName: "",
+            callerPhone: "",
+            callerLine: line ?? null,
+          });
+        } else if ((data as any).candidate) {
+          socket.emit("call:ice-candidate", { targetId: targetUser.id, candidate: data });
+        }
+      });
+
+      socket.on("call:ice-candidate", ({ candidate }: any) => {
+        if (peerRef.current) peerRef.current.signal(candidate);
       });
 
       peer.on("stream", (remStream) => {
@@ -191,21 +202,21 @@ export function useWebRTC(socket: Socket | null, currentUserId: string) {
       const peer = new SimplePeer({
         initiator: false,
         stream,
-        trickle: false,
-        config: {
-          iceServers: [
-            { urls: "stun:stun.l.google.com:19302" },
-            { urls: "stun:stun1.l.google.com:19302" },
-            { urls: "stun:stun.cloudflare.com:3478" },
-          ],
-        },
+        trickle: true,
+        config: { iceServers: ICE_SERVERS },
       });
       peerRef.current = peer;
 
       peer.signal(pendingOfferRef.current);
 
-      peer.on("signal", (answer) => {
-        socket.emit("call:answer", { callerId: remoteUser?.id, answer });
+      let answerSent = false;
+      peer.on("signal", (data) => {
+        if (!answerSent && (data as any).type === "answer") {
+          answerSent = true;
+          socket.emit("call:answer", { callerId: remoteUser?.id, answer: data });
+        } else if ((data as any).candidate) {
+          socket.emit("call:ice-candidate", { targetId: remoteUser?.id, candidate: data });
+        }
       });
 
       peer.on("stream", (remStream) => {
