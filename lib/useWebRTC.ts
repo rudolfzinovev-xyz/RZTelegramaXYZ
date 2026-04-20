@@ -109,7 +109,18 @@ export function useWebRTC(socket: Socket | null, currentUserId: string) {
       setRemoteUser(targetUser);
       setCallState("outgoing");
 
-      const peer = new SimplePeer({ initiator: true, stream, trickle: false });
+      const peer = new SimplePeer({
+        initiator: true,
+        stream,
+        trickle: false,
+        config: {
+          iceServers: [
+            { urls: "stun:stun.l.google.com:19302" },
+            { urls: "stun:stun1.l.google.com:19302" },
+            { urls: "stun:stun.cloudflare.com:3478" },
+          ],
+        },
+      });
       peerRef.current = peer;
 
       // Auto-cancel after 3 ring bursts (3 × 3200ms) if no answer
@@ -177,7 +188,18 @@ export function useWebRTC(socket: Socket | null, currentUserId: string) {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
       setLocalStream(stream);
 
-      const peer = new SimplePeer({ initiator: false, stream, trickle: false });
+      const peer = new SimplePeer({
+        initiator: false,
+        stream,
+        trickle: false,
+        config: {
+          iceServers: [
+            { urls: "stun:stun.l.google.com:19302" },
+            { urls: "stun:stun1.l.google.com:19302" },
+            { urls: "stun:stun.cloudflare.com:3478" },
+          ],
+        },
+      });
       peerRef.current = peer;
 
       peer.signal(pendingOfferRef.current);
