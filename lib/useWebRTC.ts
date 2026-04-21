@@ -134,8 +134,11 @@ export function useWebRTC(socket: Socket | null, currentUserId: string) {
       });
       peerRef.current = peer;
 
+      console.log("[WebRTC] initiateCall start, iceServers:", iceServers);
+
       // Auto-cancel after 3 ring bursts if no answer
       const ringTimeout = setTimeout(() => {
+        console.warn("[WebRTC] ring timeout — no answer");
         socket.off("call:answered");
         socket.off("call:rejected");
         if (peerRef.current) {
@@ -150,6 +153,7 @@ export function useWebRTC(socket: Socket | null, currentUserId: string) {
       }, 3200 * 3);
 
       peer.on("signal", (offer) => {
+        console.log("[WebRTC] sending offer");
         socket.emit("call:initiate", {
           receiverId: targetUser.id,
           offer,
@@ -161,6 +165,7 @@ export function useWebRTC(socket: Socket | null, currentUserId: string) {
       });
 
       peer.on("stream", (remStream) => {
+        console.log("[WebRTC] got remote stream");
         clearTimeout(ringTimeout);
         setRemoteStream(remStream);
         setCallState("connected");
@@ -170,11 +175,12 @@ export function useWebRTC(socket: Socket | null, currentUserId: string) {
       peer.on("close", () => { console.warn("[WebRTC initiator] peer closed"); clearTimeout(ringTimeout); destroyPeer(); });
 
       socket.once("call:answered", ({ answer }: { answer: any }) => {
+        console.log("[WebRTC] got call:answered, signaling answer");
         clearTimeout(ringTimeout);
         if (peerRef.current) peer.signal(answer);
       });
 
-      socket.once("call:rejected", () => { clearTimeout(ringTimeout); destroyPeer(); });
+      socket.once("call:rejected", () => { console.log("[WebRTC] call rejected"); clearTimeout(ringTimeout); destroyPeer(); });
 
     } catch (err) {
       console.error("getUserMedia failed", err);
