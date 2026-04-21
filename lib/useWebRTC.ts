@@ -101,16 +101,27 @@ export function useWebRTC(socket: Socket | null, currentUserId: string) {
     setRemoteUser(null);
   }, [localStream]);
 
-  const ICE_SERVERS = [
-    { urls: "stun:stun.l.google.com:19302" },
-    { urls: "stun:stun1.l.google.com:19302" },
-    { urls: "stun:stun.cloudflare.com:3478" },
-  ];
+  async function fetchIceServers() {
+    try {
+      const res = await fetch("/api/turn");
+      if (res.ok) {
+        const data = await res.json();
+        if (data.iceServers?.length) return data.iceServers;
+      }
+    } catch { /* fall through */ }
+    return [
+      { urls: "stun:stun.l.google.com:19302" },
+      { urls: "stun:stun1.l.google.com:19302" },
+    ];
+  }
 
   const initiateCall = useCallback(async (targetUser: { id: string; name: string; phone: string }, line?: string) => {
     if (!socket) return;
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+      const [stream, iceServers] = await Promise.all([
+        navigator.mediaDevices.getUserMedia({ audio: true, video: false }),
+        fetchIceServers(),
+      ]);
       setLocalStream(stream);
       setRemoteUser(targetUser);
       setCallState("outgoing");
@@ -119,7 +130,7 @@ export function useWebRTC(socket: Socket | null, currentUserId: string) {
         initiator: true,
         stream,
         trickle: false,
-        config: { iceServers: ICE_SERVERS },
+        config: { iceServers },
       });
       peerRef.current = peer;
 
@@ -185,14 +196,17 @@ export function useWebRTC(socket: Socket | null, currentUserId: string) {
   const acceptCall = useCallback(async () => {
     if (!socket || !pendingOfferRef.current) return;
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+      const [stream, iceServers] = await Promise.all([
+        navigator.mediaDevices.getUserMedia({ audio: true, video: false }),
+        fetchIceServers(),
+      ]);
       setLocalStream(stream);
 
       const peer = new SimplePeer({
         initiator: false,
         stream,
         trickle: false,
-        config: { iceServers: ICE_SERVERS },
+        config: { iceServers },
       });
       peerRef.current = peer;
 
