@@ -130,7 +130,7 @@ export function useWebRTC(socket: Socket | null, currentUserId: string) {
         initiator: true,
         stream,
         trickle: false,
-        config: { iceServers },
+        config: { iceServers, iceTransportPolicy: "relay" },
       });
       peerRef.current = peer;
 
@@ -209,7 +209,7 @@ export function useWebRTC(socket: Socket | null, currentUserId: string) {
         initiator: false,
         stream,
         trickle: false,
-        config: { iceServers },
+        config: { iceServers, iceTransportPolicy: "relay" },
       });
       peerRef.current = peer;
 
