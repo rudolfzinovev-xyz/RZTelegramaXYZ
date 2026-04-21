@@ -17,13 +17,17 @@ export async function GET() {
   const credential = createHmac("sha1", secret).update(username).digest("base64");
 
   const host = "178.215.238.31";
+  const tlsHost = "telegrama.rudolfzinovev.xyz";
 
   return NextResponse.json({
     iceServers: [
       { urls: "stun:stun.l.google.com:19302" },
-      { urls: "stun:stun1.l.google.com:19302" },
       {
-        urls: [`turn:${host}:3478?transport=udp`, `turn:${host}:3478?transport=tcp`],
+        urls: [
+          `turn:${host}:3478?transport=udp`,
+          `turn:${host}:3478?transport=tcp`,
+          `turns:${tlsHost}:5349?transport=tcp`,
+        ],
         username,
         credential,
       },
