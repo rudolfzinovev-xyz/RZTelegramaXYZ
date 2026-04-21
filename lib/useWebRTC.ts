@@ -166,8 +166,8 @@ export function useWebRTC(socket: Socket | null, currentUserId: string) {
         setCallState("connected");
       });
 
-      peer.on("error", () => { clearTimeout(ringTimeout); destroyPeer(); });
-      peer.on("close", () => { clearTimeout(ringTimeout); destroyPeer(); });
+      peer.on("error", (err) => { console.error("[WebRTC initiator] error", err); clearTimeout(ringTimeout); destroyPeer(); });
+      peer.on("close", () => { console.warn("[WebRTC initiator] peer closed"); clearTimeout(ringTimeout); destroyPeer(); });
 
       socket.once("call:answered", ({ answer }: { answer: any }) => {
         clearTimeout(ringTimeout);
