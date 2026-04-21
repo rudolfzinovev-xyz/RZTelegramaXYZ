@@ -2,6 +2,7 @@
 import { useRef, useState, useCallback, useEffect } from "react";
 import SimplePeer from "simple-peer";
 import { Socket } from "socket.io-client";
+import { notify } from "./notifications";
 
 type CallState = "idle" | "outgoing" | "incoming" | "connected";
 
@@ -194,6 +195,11 @@ export function useWebRTC(socket: Socket | null, currentUserId: string) {
     pendingOfferRef.current = data.offer;
     setRemoteUser({ id: data.callerId, name: data.callerName, phone: data.callerPhone });
     setCallState("incoming");
+    const callerLabel = data.callerName || data.callerPhone || "Неизвестный";
+    notify("Входящий звонок", callerLabel, {
+      tag: "incoming-call",
+      requireInteraction: true,
+    });
   }, [socket]);
 
   const acceptCall = useCallback(async () => {

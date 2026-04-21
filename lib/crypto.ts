@@ -93,20 +93,28 @@ export function decryptMessage(
   return plain ? utf8decode(plain) : null;
 }
 
-// sessionStorage helpers — private key lives only in-memory-per-tab.
-const SESSION_PRIVKEY_KEY = "rz:privkey";
+// localStorage helpers — private key persists across reloads / PWA restarts.
+// Cleared on explicit logout via clearPrivateKey().
+const PRIVKEY_KEY = "rz:privkey";
 
 export function storePrivateKey(privateKey: Uint8Array) {
-  sessionStorage.setItem(SESSION_PRIVKEY_KEY, b64encode(privateKey));
+  localStorage.setItem(PRIVKEY_KEY, b64encode(privateKey));
 }
 
 export function loadPrivateKey(): Uint8Array | null {
   if (typeof window === "undefined") return null;
-  const raw = sessionStorage.getItem(SESSION_PRIVKEY_KEY);
+  // Migration: read from old sessionStorage if present, move to localStorage.
+  const legacy = sessionStorage.getItem(PRIVKEY_KEY);
+  if (legacy && !localStorage.getItem(PRIVKEY_KEY)) {
+    localStorage.setItem(PRIVKEY_KEY, legacy);
+    sessionStorage.removeItem(PRIVKEY_KEY);
+  }
+  const raw = localStorage.getItem(PRIVKEY_KEY);
   return raw ? b64decode(raw) : null;
 }
 
 export function clearPrivateKey() {
   if (typeof window === "undefined") return;
-  sessionStorage.removeItem(SESSION_PRIVKEY_KEY);
+  localStorage.removeItem(PRIVKEY_KEY);
+  sessionStorage.removeItem(PRIVKEY_KEY);
 }

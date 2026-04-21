@@ -20,6 +20,7 @@ import { MessageSlip } from "@/components/folder/MessageSlip";
 import { MissedInbox } from "@/components/desk/MissedInbox";
 import { TrashBin } from "@/components/desk/TrashBin";
 import { decryptMessage, loadPrivateKey, clearPrivateKey } from "@/lib/crypto";
+import { ensureNotificationPermission, notify } from "@/lib/notifications";
 
 interface User {
   id: string;
@@ -161,6 +162,11 @@ export function DeskClient({ user }: { user: User }) {
     return () => window.removeEventListener("focus", onFocus);
   }, []);
 
+  // Ask for notification permission once after mount.
+  useEffect(() => {
+    ensureNotificationPermission();
+  }, []);
+
   // Load initial data
   useEffect(() => {
     async function loadData() {
@@ -227,6 +233,9 @@ export function DeskClient({ user }: { user: User }) {
       playIncomingSound();
       startTitleBlink();
       setIncomingQueue((q) => [...q, msg]);
+      if (document.hidden) {
+        notify("Новое сообщение", `От: ${msg.senderName}`, { tag: `msg-${msg.id}` });
+      }
     });
 
     socket.on("message:delivered", () => {

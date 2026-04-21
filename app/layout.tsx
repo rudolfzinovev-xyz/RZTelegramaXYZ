@@ -5,6 +5,12 @@ import { SessionProvider } from "@/components/SessionProvider";
 export const metadata: Metadata = {
   title: "RZTelegramaXYZ",
   description: "Retro teletype messenger",
+  manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Telegrama",
+  },
 };
 
 export const viewport: Viewport = {

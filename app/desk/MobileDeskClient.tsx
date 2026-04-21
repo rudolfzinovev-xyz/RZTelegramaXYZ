@@ -5,6 +5,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { getSocket } from "@/lib/socket";
 import { useWebRTC } from "@/lib/useWebRTC";
 import { decryptMessage, loadPrivateKey, clearPrivateKey } from "@/lib/crypto";
+import { ensureNotificationPermission, notify } from "@/lib/notifications";
 
 import { MobileTopBar } from "@/components/mobile/MobileTopBar";
 import { MobileBottomNav, type MobileTab } from "@/components/mobile/MobileBottomNav";
@@ -130,6 +131,11 @@ export function MobileDeskClient({ user }: { user: MobileUser }) {
     prevCallStateRef.current = callState;
   }, [callState, user.timezone]);
 
+  // Ask for notification permission once after mount.
+  useEffect(() => {
+    ensureNotificationPermission();
+  }, []);
+
   // Initial data load
   useEffect(() => {
     async function load() {
@@ -199,6 +205,9 @@ export function MobileDeskClient({ user }: { user: MobileUser }) {
       setLoosePapers(p => [msg, ...p]);
       setUnreadIds(s => new Set(s).add(msg.id));
       flashToast(`Новое: ${msg.senderName}`, "info");
+      if (document.hidden) {
+        notify("Новое сообщение", `От: ${msg.senderName}`, { tag: `msg-${msg.id}` });
+      }
     });
 
     socket.on("message:delivered", () => {
