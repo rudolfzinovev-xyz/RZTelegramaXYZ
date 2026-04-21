@@ -136,7 +136,7 @@ export function useWebRTC(socket: Socket | null, currentUserId: string) {
 
       console.log("[WebRTC] initiateCall start");
 
-      // Auto-cancel after 3 ring bursts if no answer
+      // Auto-cancel after ~45s if no answer (gives ICE + TURN relay time to connect)
       const ringTimeout = setTimeout(() => {
         console.warn("[WebRTC] ring timeout — no answer");
         socket.off("call:answered");
@@ -150,7 +150,7 @@ export function useWebRTC(socket: Socket | null, currentUserId: string) {
         setRemoteStream(null);
         setCallState("idle");
         setRemoteUser(null);
-      }, 3200 * 3);
+      }, 45000);
 
       peer.on("signal", (offer) => {
         socket.emit("call:initiate", {
