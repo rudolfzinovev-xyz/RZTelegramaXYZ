@@ -136,27 +136,46 @@ export function MobileDeskClient({ user }: { user: MobileUser }) {
     ensureNotificationPermission();
   }, []);
 
+  // Track all known message IDs across buckets so re-syncs don't duplicate.
+  const knownMsgIdsRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    const ids = new Set<string>();
+    loosePapers.forEach(m => ids.add(m.id));
+    trashedMessages.forEach(m => ids.add(m.id));
+    folders.forEach(f => f.messages.forEach(m => ids.add(m.id)));
+    knownMsgIdsRef.current = ids;
+  }, [loosePapers, trashedMessages, folders]);
+
+  // Fetch undelivered server-side messages and merge any we haven't seen yet
+  // into the trashed/missed bucket. Called on mount AND whenever the socket
+  // reconnects or the page becomes visible again — so offline messages appear
+  // without a manual reload.
+  const syncOfflineMessages = useCallback(async () => {
+    try {
+      const res = await fetch("/api/messages");
+      if (!res.ok) return;
+      const msgs = await res.json();
+      const fresh = msgs
+        .filter((m: any) => !knownMsgIdsRef.current.has(m.id))
+        .map((m: any) => ({
+          id: m.id,
+          content: tryDecrypt(m.content, m.nonce, m.sender.publicKey),
+          senderName: m.sender.name,
+          senderPhone: m.sender.phone,
+          senderTimezone: m.sender.timezone || "",
+          createdAt: m.createdAt,
+          folderId: m.folderId,
+        }));
+      if (!fresh.length) return;
+      setTrashedMessages(prev => [...fresh, ...prev]);
+    } catch { /* ignore */ }
+  }, []);
+
   // Initial data load
   useEffect(() => {
     async function load() {
       try {
-        const [msgRes, folderRes] = await Promise.all([
-          fetch("/api/messages"),
-          fetch("/api/folders"),
-        ]);
-        if (msgRes.ok) {
-          const msgs = await msgRes.json();
-          // Messages received while offline → trashed/missed bucket
-          setTrashedMessages(msgs.map((m: any) => ({
-            id: m.id,
-            content: tryDecrypt(m.content, m.nonce, m.sender.publicKey),
-            senderName: m.sender.name,
-            senderPhone: m.sender.phone,
-            senderTimezone: m.sender.timezone || "",
-            createdAt: m.createdAt,
-            folderId: m.folderId,
-          })));
-        }
+        const folderRes = await fetch("/api/folders");
         if (folderRes.ok) {
           const flds = await folderRes.json();
           const seen = new Set<string>();
@@ -179,9 +198,19 @@ export function MobileDeskClient({ user }: { user: MobileUser }) {
           }));
         }
       } catch { /* ignore */ }
+      await syncOfflineMessages();
     }
     load();
-  }, []);
+  }, [syncOfflineMessages]);
+
+  // Re-sync offline messages whenever the tab becomes visible again.
+  useEffect(() => {
+    function onVisible() {
+      if (!document.hidden) syncOfflineMessages();
+    }
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [syncOfflineMessages]);
 
   // Socket setup
   useEffect(() => {
@@ -189,6 +218,8 @@ export function MobileDeskClient({ user }: { user: MobileUser }) {
     socket.on("connect", () => {
       socket.emit("register", user.id);
       setSocketReady(true);
+      // Socket just (re)connected — pull any messages received while we were offline.
+      syncOfflineMessages();
     });
 
     socket.on("message:receive", (message: any) => {
@@ -205,9 +236,7 @@ export function MobileDeskClient({ user }: { user: MobileUser }) {
       setLoosePapers(p => [msg, ...p]);
       setUnreadIds(s => new Set(s).add(msg.id));
       flashToast(`Новое: ${msg.senderName}`, "info");
-      if (document.hidden) {
-        notify("Новое сообщение", `От: ${msg.senderName}`, { tag: `msg-${msg.id}` });
-      }
+      notify("Новое сообщение", `От: ${msg.senderName}`, { tag: `msg-${msg.id}` });
     });
 
     socket.on("message:delivered", () => {
