@@ -134,7 +134,7 @@ export function useWebRTC(socket: Socket | null, currentUserId: string) {
       });
       peerRef.current = peer;
 
-      console.log("[WebRTC] initiateCall start, iceServers:", iceServers);
+      alert("initiateCall start, iceServers: " + JSON.stringify(iceServers).slice(0, 200));
 
       // Auto-cancel after 3 ring bursts if no answer
       const ringTimeout = setTimeout(() => {
@@ -153,7 +153,7 @@ export function useWebRTC(socket: Socket | null, currentUserId: string) {
       }, 3200 * 3);
 
       peer.on("signal", (offer) => {
-        console.log("[WebRTC] sending offer");
+        alert("initiator: sending offer");
         socket.emit("call:initiate", {
           receiverId: targetUser.id,
           offer,
@@ -165,22 +165,22 @@ export function useWebRTC(socket: Socket | null, currentUserId: string) {
       });
 
       peer.on("stream", (remStream) => {
-        console.log("[WebRTC] got remote stream");
+        alert("initiator: got remote stream");
         clearTimeout(ringTimeout);
         setRemoteStream(remStream);
         setCallState("connected");
       });
 
-      peer.on("error", (err) => { console.error("[WebRTC initiator] error", err); clearTimeout(ringTimeout); destroyPeer(); });
-      peer.on("close", () => { console.warn("[WebRTC initiator] peer closed"); clearTimeout(ringTimeout); destroyPeer(); });
+      peer.on("error", (err) => { alert("initiator error: " + (err as any)?.message); clearTimeout(ringTimeout); destroyPeer(); });
+      peer.on("close", () => { alert("initiator: peer closed"); clearTimeout(ringTimeout); destroyPeer(); });
 
       socket.once("call:answered", ({ answer }: { answer: any }) => {
-        console.log("[WebRTC] got call:answered, signaling answer");
+        alert("initiator: got call:answered, signaling");
         clearTimeout(ringTimeout);
         if (peerRef.current) peer.signal(answer);
       });
 
-      socket.once("call:rejected", () => { console.log("[WebRTC] call rejected"); clearTimeout(ringTimeout); destroyPeer(); });
+      socket.once("call:rejected", () => { alert("initiator: call rejected"); clearTimeout(ringTimeout); destroyPeer(); });
 
     } catch (err) {
       console.error("getUserMedia failed", err);
@@ -202,10 +202,12 @@ export function useWebRTC(socket: Socket | null, currentUserId: string) {
   const acceptCall = useCallback(async () => {
     if (!socket || !pendingOfferRef.current) return;
     try {
+      alert("acceptCall started");
       const [stream, iceServers] = await Promise.all([
         navigator.mediaDevices.getUserMedia({ audio: true, video: false }),
         fetchIceServers(),
       ]);
+      alert("got stream + iceServers: " + JSON.stringify(iceServers).slice(0, 200));
       setLocalStream(stream);
 
       const peer = new SimplePeer({
@@ -219,19 +221,21 @@ export function useWebRTC(socket: Socket | null, currentUserId: string) {
       peer.signal(pendingOfferRef.current);
 
       peer.on("signal", (answer) => {
+        alert("acceptCall: sending answer");
         socket.emit("call:answer", { callerId: remoteUser?.id, answer });
       });
 
       peer.on("stream", (remStream) => {
+        alert("acceptCall: got remote stream");
         setRemoteStream(remStream);
         setCallState("connected");
       });
 
-      peer.on("error", destroyPeer);
-      peer.on("close", destroyPeer);
+      peer.on("error", (err) => { alert("acceptCall error: " + (err as any)?.message); destroyPeer(); });
+      peer.on("close", () => { alert("acceptCall: peer closed"); destroyPeer(); });
 
     } catch (err) {
-      console.error("getUserMedia failed", err);
+      alert("acceptCall exception: " + (err as any)?.message);
       rejectCall();
     }
   }, [socket, remoteUser]);
