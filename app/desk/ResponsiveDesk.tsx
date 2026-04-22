@@ -8,6 +8,7 @@ interface User {
   name: string;
   phone: string;
   timezone: string;
+  line: number;
 }
 
 export function ResponsiveDesk({ user }: { user: User }) {

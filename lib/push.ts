@@ -11,19 +11,33 @@ function urlBase64ToUint8Array(base64String: string): ArrayBuffer {
   return buf;
 }
 
-export async function registerPush(): Promise<void> {
-  if (typeof window === "undefined") return;
-  if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
-  if (Notification.permission !== "granted") return;
+export type PushStatus =
+  | "unsupported"
+  | "permission-default"
+  | "permission-denied"
+  | "no-vapid"
+  | "subscribed"
+  | "error";
+
+export async function registerPush(): Promise<PushStatus> {
+  if (typeof window === "undefined") return "unsupported";
+  if (!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)) {
+    return "unsupported";
+  }
+  if (Notification.permission === "denied") return "permission-denied";
+  if (Notification.permission !== "granted") return "permission-default";
 
   try {
-    const reg = await navigator.serviceWorker.register("/sw.js");
+    const reg = await navigator.serviceWorker.register("/sw.js", { updateViaCache: "none" });
     await navigator.serviceWorker.ready;
+    // Force an update check — helps when the SW on prod was cached before
+    // today's push fixes shipped.
+    try { await reg.update(); } catch { /* ignore */ }
 
     const vapidRes = await fetch("/api/push/vapid");
-    if (!vapidRes.ok) return;
+    if (!vapidRes.ok) return "no-vapid";
     const { publicKey } = await vapidRes.json();
-    if (!publicKey) return;
+    if (!publicKey) return "no-vapid";
 
     let sub = await reg.pushManager.getSubscription();
     if (!sub) {
@@ -39,7 +53,20 @@ export async function registerPush(): Promise<void> {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(raw),
     });
+    return "subscribed";
   } catch (err) {
     console.warn("[push] registration failed", err);
+    return "error";
   }
+}
+
+// Triggered by a user gesture — required for reliable permission prompts on
+// Android Chrome. Returns the final status so the UI can react.
+export async function enablePushWithGesture(): Promise<PushStatus> {
+  if (typeof window === "undefined") return "unsupported";
+  if (!("Notification" in window)) return "unsupported";
+  if (Notification.permission === "default") {
+    try { await Notification.requestPermission(); } catch { /* ignore */ }
+  }
+  return registerPush();
 }

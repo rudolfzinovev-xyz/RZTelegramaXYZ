@@ -10,6 +10,7 @@ declare module "next-auth" {
       username?: string;
       phone?: string;
       timezone?: string;
+      line?: number;
     };
   }
 }

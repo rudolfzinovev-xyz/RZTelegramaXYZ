@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
     // return all received messages not yet in a folder
     const messages = await prisma.message.findMany({
       where: { receiverId: session.user.id, folderId: null },
-      include: { sender: { select: { id: true, name: true, phone: true, timezone: true, publicKey: true } } },
+      include: { sender: { select: { id: true, name: true, phone: true, timezone: true, line: true, publicKey: true } } },
       orderBy: { createdAt: "asc" },
     });
     return NextResponse.json(messages);
@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
       ],
     },
     include: {
-      sender: { select: { id: true, name: true, phone: true, timezone: true, publicKey: true } },
+      sender: { select: { id: true, name: true, phone: true, timezone: true, line: true, publicKey: true } },
       receiver: { select: { id: true, name: true, phone: true, publicKey: true } },
     },
     orderBy: { createdAt: "asc" },
@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
   const message = await prisma.message.create({
     data: { senderId: session.user.id, receiverId, content, nonce },
     include: {
-      sender: { select: { id: true, name: true, phone: true, timezone: true, publicKey: true } },
+      sender: { select: { id: true, name: true, phone: true, timezone: true, line: true, publicKey: true } },
       receiver: { select: { id: true, name: true, phone: true, publicKey: true } },
     },
   });

@@ -11,9 +11,21 @@ const TIMEZONES = [
   "UTC+7", "UTC+8", "UTC+9", "UTC+10", "UTC+11", "UTC+12",
 ];
 
+// Detect user's timezone from the browser. Falls back to UTC+0.
+function detectTimezone(): string {
+  try {
+    const offsetMin = -new Date().getTimezoneOffset();
+    const hours = Math.round(offsetMin / 60);
+    const sign = hours >= 0 ? "+" : "-";
+    return `UTC${sign}${Math.abs(hours)}`;
+  } catch {
+    return "UTC+0";
+  }
+}
+
 export default function RegisterPage() {
   const router = useRouter();
-  const [form, setForm] = useState({ username: "", name: "", phone: "", password: "", timezone: "UTC+0" });
+  const [form, setForm] = useState({ username: "", name: "", phone: "", password: "", timezone: detectTimezone() });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -111,6 +123,9 @@ export default function RegisterPage() {
                 <option key={tz} value={tz}>{tz}</option>
               ))}
             </select>
+            <p className="text-[#666] text-[10px] font-typewriter mt-1">
+              Линия связи назначается случайно.
+            </p>
           </div>
 
           {error && (

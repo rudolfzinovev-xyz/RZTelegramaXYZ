@@ -7,12 +7,7 @@ interface SwitchboardProps {
   prefilledPhone?: string;
 }
 
-const TIMEZONE_SLOTS = [
-  "UTC-12", "UTC-10", "UTC-8", "UTC-6", "UTC-5",
-  "UTC-3", "UTC+0", "UTC+1", "UTC+2", "UTC+3",
-  "UTC+4", "UTC+5", "UTC+6", "UTC+7", "UTC+8",
-  "UTC+9", "UTC+10", "UTC+12",
-];
+const LINE_SLOTS = ["1", "2", "3", "4", "5", "6"];
 
 export function Switchboard({ onConnect, prefilledPhone }: SwitchboardProps) {
   const [connectedSlot, setConnectedSlot] = useState<string | null>(() => {
@@ -45,16 +40,16 @@ export function Switchboard({ onConnect, prefilledPhone }: SwitchboardProps) {
     setCableEnd({ x: e.clientX - boardRect.left, y: e.clientY - boardRect.top });
   }
 
-  function handleSlotDrop(e: React.MouseEvent, tz: string) {
+  function handleSlotDrop(e: React.MouseEvent, line: string) {
     if (!draggingCable) return;
     const boardRect = boardRef.current!.getBoundingClientRect();
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
     const ex = rect.left - boardRect.left + rect.width / 2;
     const ey = rect.top - boardRect.top + rect.height / 2;
     setDraggingCable(false);
-    setConnectedSlot(tz);
+    setConnectedSlot(line);
     setConnectedCable({ start: cableStart, end: { x: ex, y: ey } });
-    localStorage.setItem("switchboard_slot", tz);
+    localStorage.setItem("switchboard_slot", line);
   }
 
   function handleMouseUp() {
@@ -82,37 +77,37 @@ export function Switchboard({ onConnect, prefilledPhone }: SwitchboardProps) {
         }}
       >
         <div className="font-typewriter text-xs tracking-widest uppercase text-center mb-3" style={{ color: "#DAA520" }}>
-          КОММУТАТОР — ЧАСОВЫЕ ПОЯСА
+          КОММУТАТОР — ЛИНИИ СВЯЗИ
         </div>
 
-        {/* Timezone slots grid */}
-        <div className="grid grid-cols-6 gap-2 mb-4">
-          {TIMEZONE_SLOTS.map((tz) => (
+        {/* Line slots grid — 6 lines */}
+        <div className="grid grid-cols-6 gap-3 mb-4">
+          {LINE_SLOTS.map((line) => (
             <div
-              key={tz}
+              key={line}
               className="relative flex flex-col items-center gap-1"
-              onMouseUp={(e) => handleSlotDrop(e, tz)}
+              onMouseUp={(e) => handleSlotDrop(e, line)}
             >
               {/* Socket */}
               <div
                 className="rounded-full flex items-center justify-center transition-all"
                 style={{
-                  width: 20,
-                  height: 20,
-                  background: connectedSlot === tz
+                  width: 28,
+                  height: 28,
+                  background: connectedSlot === line
                     ? "linear-gradient(135deg, #DAA520, #B8860B)"
                     : "linear-gradient(135deg, #444, #222)",
-                  border: `2px solid ${connectedSlot === tz ? "#DAA520" : "#555"}`,
-                  boxShadow: connectedSlot === tz ? "0 0 8px #DAA520" : "inset 0 1px 3px rgba(0,0,0,0.8)",
+                  border: `2px solid ${connectedSlot === line ? "#DAA520" : "#555"}`,
+                  boxShadow: connectedSlot === line ? "0 0 8px #DAA520" : "inset 0 1px 3px rgba(0,0,0,0.8)",
                   cursor: draggingCable ? "crosshair" : "default",
                 }}
               >
-                {connectedSlot === tz && (
-                  <div style={{ width: 6, height: 6, background: "#1a1008", borderRadius: "50%" }} />
+                {connectedSlot === line && (
+                  <div style={{ width: 8, height: 8, background: "#1a1008", borderRadius: "50%" }} />
                 )}
               </div>
-              <span className="font-typewriter text-center" style={{ fontSize: 8, color: connectedSlot === tz ? "#DAA520" : "#666", lineHeight: 1.2 }}>
-                {tz}
+              <span className="font-typewriter text-center tracking-widest" style={{ fontSize: 9, color: connectedSlot === line ? "#DAA520" : "#888", lineHeight: 1.2 }}>
+                Л{line}
               </span>
             </div>
           ))}
@@ -135,8 +130,8 @@ export function Switchboard({ onConnect, prefilledPhone }: SwitchboardProps) {
           />
           <span className="font-typewriter text-xs" style={{ color: "#666" }}>
             {connectedSlot
-              ? `Подключено: ${connectedSlot}`
-              : "Перетащите кабель в гнездо часового пояса"}
+              ? `Подключено: ЛИНИЯ ${connectedSlot}`
+              : "Перетащите кабель в гнездо линии"}
           </span>
         </div>
 

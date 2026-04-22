@@ -89,7 +89,8 @@ app.prepare().then(() => {
         const fresh = await prisma.message.findUnique({
           where: { id: data.message.id },
           include: {
-            sender: { select: { id: true, name: true, phone: true, timezone: true, publicKey: true } },
+            sender: { select: { id: true, name: true, phone: true, timezone: true, line: true, publicKey: true } },
+            receiver: { select: { id: true, name: true, phone: true } },
           },
         });
         if (!fresh || fresh.senderId !== socket.data.userId) return;
@@ -98,7 +99,11 @@ app.prepare().then(() => {
           io.to(receiverSocketId).emit("message:receive", fresh);
           io.to(socket.id).emit("message:delivered", { messageId: fresh.id });
         } else {
-          io.to(socket.id).emit("message:offline", { messageId: fresh.id });
+          io.to(socket.id).emit("message:offline", {
+            messageId: fresh.id,
+            receiverName: fresh.receiver?.name || "",
+            receiverPhone: fresh.receiver?.phone || "",
+          });
         }
         // Always fire push too — covers the case where the receiver has the
         // page open but backgrounded (socket may still be alive, yet the JS

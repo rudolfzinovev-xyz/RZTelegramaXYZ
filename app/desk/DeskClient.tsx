@@ -28,6 +28,7 @@ interface User {
   name: string;
   phone: string;
   timezone: string;
+  line: number;
 }
 
 interface MessageData {
@@ -109,7 +110,6 @@ export function DeskClient({ user }: { user: User }) {
 
   // Wastebasket
   const [trashedMessages, setTrashedMessages] = useState<MessageData[]>([]);
-  const [offlineToast, setOfflineToast] = useState(false);
 
   // Title blink ref
   const titleBlinkRef = useRef<NodeJS.Timeout | null>(null);
@@ -126,8 +126,8 @@ export function DeskClient({ user }: { user: User }) {
       wrongLineRef.current = null;
       const sysMsg: MessageData = {
         id: `sys-${Date.now()}`,
-        content: `СОЕДИНЕНИЕ НЕ УСТАНОВЛЕНО\nАбонент находится на канале ${receiverLine}.\nПодключите нужный канал и повторите звонок.`,
-        senderName: "СИСТЕМА",
+        content: `СОЕДИНЕНИЕ НЕ УСТАНОВЛЕНО\nАбонент на линии ${receiverLine}.\nПодключите кабель к нужной линии и повторите звонок.`,
+        senderName: "system",
         senderPhone: "",
         senderTimezone: user.timezone,
         createdAt: new Date().toISOString(),
@@ -277,17 +277,28 @@ export function DeskClient({ user }: { user: User }) {
       deliveredTimerRef.current = setTimeout(() => setSendStatus("idle"), 3000);
     });
 
-    socket.on("message:offline", () => {
+    socket.on("message:offline", (data: { messageId: string; receiverName: string; receiverPhone: string }) => {
       setSendStatus("idle");
-      setOfflineToast(true);
-      setTimeout(() => setOfflineToast(false), 4000);
+      const who = data.receiverName || data.receiverPhone || "абонент";
+      const sysMsg: MessageData = {
+        id: `sys-off-${data.messageId || Date.now()}`,
+        content: `АБОНЕНТ НЕ В СЕТИ\n${who} сейчас не на связи.\nСообщение сохранено на сервере и будет доставлено при подключении.`,
+        senderName: "system",
+        senderPhone: "",
+        senderTimezone: user.timezone,
+        createdAt: new Date().toISOString(),
+        folderId: null,
+      };
+      playIncomingSound();
+      setIncomingQueue((q) => [...q, sysMsg]);
     });
 
     socket.on("call:incoming", (data: any) => {
       const callerLine = data.callerLine ?? null;
-      // Call reaches me only if caller plugged into MY timezone channel
-      if (callerLine && callerLine !== user.timezone) {
-        socket.emit("call:wrong_line", { callerId: data.callerId, receiverLine: user.timezone });
+      // Call reaches me only if caller plugged into MY assigned line
+      const myLine = String(user.line);
+      if (callerLine && callerLine !== myLine) {
+        socket.emit("call:wrong_line", { callerId: data.callerId, receiverLine: myLine });
         return;
       }
       handleIncomingCall(data);
@@ -296,6 +307,7 @@ export function DeskClient({ user }: { user: User }) {
 
     socket.on("call:wrong_line", ({ receiverLine }: { receiverLine: string }) => {
       wrongLineRef.current = receiverLine;
+      cancelCall();
     });
 
     // Busy signal: receiver is in a call
@@ -458,7 +470,7 @@ export function DeskClient({ user }: { user: User }) {
           </div>
           <div className="flex items-center gap-4">
             <span className="font-courier text-xs" style={{ color: "#9a8870" }}>
-              {user.name} · {user.phone} · {user.timezone}
+              {user.name} · {user.phone} · ЛИНИЯ {user.line}
             </span>
             <div
               className="w-2 h-2 rounded-full"
@@ -594,7 +606,7 @@ export function DeskClient({ user }: { user: User }) {
           open={phoneOpen}
           onClose={() => setPhoneOpen(false)}
           onDial={handleDial}
-          timezone={user.timezone}
+          line={user.line}
         />
 
         {/* Call UI */}
@@ -627,26 +639,6 @@ export function DeskClient({ user }: { user: User }) {
           )}
         </AnimatePresence>
 
-        {/* Offline toast */}
-        <AnimatePresence>
-          {offlineToast && (
-            <motion.div
-              initial={{ opacity: 0, y: 40 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 40 }}
-              className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-6 py-3 font-typewriter text-sm tracking-widest uppercase"
-              style={{
-                background: "linear-gradient(135deg, #0a0a1a, #10101a)",
-                border: "2px solid #4a4a8a",
-                borderRadius: "6px",
-                color: "#8888cc",
-                boxShadow: "0 4px 20px rgba(60,60,150,0.3)",
-              }}
-            >
-              📭 Абонент не в сети — сообщение сохранено
-            </motion.div>
-          )}
-        </AnimatePresence>
       </div>
     </DndContext>
   );

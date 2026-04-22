@@ -2,14 +2,14 @@
 import { motion, AnimatePresence } from "framer-motion";
 
 interface Props {
-  user: { name: string; phone: string; timezone: string };
+  user: { name: string; phone: string; timezone: string; line: number };
   online: boolean;
   unreadCount: number;
   sendStatus: "idle" | "sending" | "delivered";
 }
 
 export function MobileTopBar({ user, online, unreadCount, sendStatus }: Props) {
-  const subtitleRight = `${user.phone} · ${user.timezone}`;
+  const subtitleRight = `${user.phone} · ЛИНИЯ ${user.line}`;
 
   return (
     <header

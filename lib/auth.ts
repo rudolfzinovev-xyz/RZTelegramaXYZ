@@ -26,6 +26,7 @@ export const authOptions: NextAuthOptions = {
           username: user.username,
           phone: user.phone,
           timezone: user.timezone,
+          line: user.line,
         };
       },
     }),
@@ -37,6 +38,7 @@ export const authOptions: NextAuthOptions = {
         token.username = (user as any).username;
         token.phone = (user as any).phone;
         token.timezone = (user as any).timezone;
+        token.line = (user as any).line;
       }
       return token;
     },
@@ -46,6 +48,7 @@ export const authOptions: NextAuthOptions = {
         (session.user as any).username = token.username;
         (session.user as any).phone = token.phone;
         (session.user as any).timezone = token.timezone;
+        (session.user as any).line = token.line;
       }
       return session;
     },

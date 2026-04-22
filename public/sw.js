@@ -1,5 +1,7 @@
 // Service Worker for RZTelegramaXYZ push notifications.
 // Activates immediately so updates take effect on next reload.
+// SW_VERSION bumped 2026-04-22 to force re-install on prod clients.
+const SW_VERSION = "2026-04-22.1";
 
 self.addEventListener("install", () => {
   self.skipWaiting();
@@ -23,8 +25,10 @@ self.addEventListener("push", (event) => {
     icon: "/icon-192.png",
     badge: "/icon-192.png",
     tag: data.tag,
+    renotify: Boolean(data.tag),
     requireInteraction: data.requireInteraction === true,
-    data: { url: data.url || "/desk" },
+    vibrate: [200, 100, 200],
+    data: { url: data.url || "/desk", v: SW_VERSION },
   };
 
   event.waitUntil(self.registration.showNotification(title, options));

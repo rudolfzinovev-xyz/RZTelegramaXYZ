@@ -13,6 +13,7 @@ model User {
   name         String
   phone        String   @unique
   timezone     String
+  line         Int      @default(1)
   passwordHash String
   createdAt    DateTime @default(now())
 

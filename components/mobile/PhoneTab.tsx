@@ -7,12 +7,13 @@ import { MobileSwitchboard } from "./MobileSwitchboard";
 const LINE_KEY = "rz:phone_line";
 
 interface Props {
-  timezone: string;
+  homeLine: number;
   onDial: (phone: string, line?: string) => void;
   callState: "idle" | "outgoing" | "incoming" | "connected";
 }
 
-export function PhoneTab({ timezone, onDial, callState }: Props) {
+export function PhoneTab({ homeLine, onDial, callState }: Props) {
+  const homeLineStr = String(homeLine);
   const [line, setLine] = useState<string | null>(null);
 
   useEffect(() => {
@@ -37,14 +38,14 @@ export function PhoneTab({ timezone, onDial, callState }: Props) {
     callState !== "idle"
       ? "● Линия занята"
       : !line
-      ? "Подключите кабель к каналу собеседника"
-      : `Линия: ${line}  ·  Ваш канал: ${timezone}`;
+      ? "Подключите кабель к линии собеседника"
+      : `Выбрана: ЛИНИЯ ${line}  ·  Ваша: Л${homeLineStr}`;
 
   return (
     <div style={{ paddingBottom: 24 }}>
       {/* Switchboard */}
       <div className="px-4 pt-3">
-        <MobileSwitchboard homeTimezone={timezone} />
+        <MobileSwitchboard homeLine={homeLine} />
       </div>
 
       <div className="px-4 pt-2">

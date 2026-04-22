@@ -7,15 +7,11 @@ interface PhoneModalProps {
   open: boolean;
   onClose: () => void;
   onDial: (phone: string) => void;
-  timezone: string;
+  line: number;
 }
 
 const LINE_KEY = "rz:phone_line";
-const TIMEZONES = [
-  "UTC-12","UTC-11","UTC-10","UTC-9","UTC-8","UTC-7","UTC-6","UTC-5",
-  "UTC-4","UTC-3","UTC-2","UTC-1","UTC+0","UTC+1","UTC+2","UTC+3",
-  "UTC+4","UTC+5","UTC+6","UTC+7","UTC+8","UTC+9","UTC+10","UTC+11","UTC+12",
-];
+const LINES = ["1", "2", "3", "4", "5", "6"];
 
 function getStoredLine(): string | null {
   if (typeof window === "undefined") return null;
@@ -28,7 +24,8 @@ function setStoredLine(line: string | null) {
   window.dispatchEvent(new CustomEvent("rz:line_changed", { detail: line }));
 }
 
-export function PhoneModal({ open, onClose, onDial, timezone }: PhoneModalProps) {
+export function PhoneModal({ open, onClose, onDial, line: myLine }: PhoneModalProps) {
+  const myLineStr = String(myLine);
   const [selectedLine, setSelectedLine] = useState<string | null>(() => getStoredLine());
   const [draggingCable, setDraggingCable] = useState(false);
   const [cableStart, setCableStart] = useState({ x: 0, y: 0 });
@@ -60,20 +57,16 @@ export function PhoneModal({ open, onClose, onDial, timezone }: PhoneModalProps)
     if (draggingCable) setDraggingCable(false);
   }
 
-  function handleSlotDrop(e: React.MouseEvent, tz: string) {
+  function handleSlotDrop(e: React.MouseEvent, line: string) {
     if (!draggingCable) return;
     const boardRect = boardRef.current!.getBoundingClientRect();
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
     const ex = rect.left - boardRect.left + rect.width / 2;
     const ey = rect.top - boardRect.top + rect.height / 2;
     setDraggingCable(false);
-    setSelectedLine(tz);
-    setStoredLine(tz);
+    setSelectedLine(line);
+    setStoredLine(line);
     setConnectedCable({ start: cableStart, end: { x: ex, y: ey } });
-  }
-
-  function shortLabel(tz: string) {
-    return tz.replace("UTC", "") || "0";
   }
 
   return (
@@ -108,7 +101,7 @@ export function PhoneModal({ open, onClose, onDial, timezone }: PhoneModalProps)
               <div>
                 <div className="font-typewriter text-[#DAA520] tracking-widest uppercase text-sm">ТЕЛЕФОН RZ-TEL</div>
                 <div className="font-typewriter text-[10px] tracking-widest mt-0.5" style={{ color: "#8a6a4a" }}>
-                  Ваш канал: {timezone}
+                  Ваша линия: Л{myLineStr}
                 </div>
               </div>
               <button onClick={onClose} className="font-typewriter text-[#8a6a4a] hover:text-[#DAA520] text-lg">✕</button>
@@ -130,29 +123,29 @@ export function PhoneModal({ open, onClose, onDial, timezone }: PhoneModalProps)
                 }}
               >
                 <div className="font-typewriter text-xs tracking-widest uppercase text-center mb-1" style={{ color: "#DAA520" }}>
-                  ВЫБЕРИТЕ КАНАЛ СОБЕСЕДНИКА
+                  ВЫБЕРИТЕ ЛИНИЮ СОБЕСЕДНИКА
                 </div>
                 <div className="font-typewriter text-[9px] text-center mb-3" style={{ color: "#8a6a4a" }}>
-                  <span style={{ color: "#DAA520" }}>●</span> — ваш канал ({timezone})
+                  <span style={{ color: "#DAA520" }}>●</span> — ваша линия (Л{myLineStr})
                 </div>
 
-                {/* Timezone jacks — 5 columns */}
-                <div className="grid mb-4" style={{ gridTemplateColumns: "repeat(5, 1fr)", gap: "6px" }}>
-                  {TIMEZONES.map((tz) => {
-                    const active = selectedLine === tz;
-                    const isHome = tz === timezone;
+                {/* Line jacks — 6 lines in a single row */}
+                <div className="grid mb-4" style={{ gridTemplateColumns: "repeat(6, 1fr)", gap: "10px" }}>
+                  {LINES.map((ln) => {
+                    const active = selectedLine === ln;
+                    const isHome = ln === myLineStr;
                     return (
                       <div
-                        key={tz}
-                        className="flex flex-col items-center gap-0.5"
-                        onMouseUp={(e) => handleSlotDrop(e, tz)}
+                        key={ln}
+                        className="flex flex-col items-center gap-1"
+                        onMouseUp={(e) => handleSlotDrop(e, ln)}
                       >
                         {/* Indicator lamp */}
                         <motion.div
                           animate={active ? { opacity: [0.7, 1, 0.7] } : { opacity: 1 }}
                           transition={active ? { duration: 1.2, repeat: Infinity } : {}}
                           style={{
-                            width: 5, height: 5, borderRadius: "50%",
+                            width: 6, height: 6, borderRadius: "50%",
                             background: active ? "#228B22" : isHome ? "#DAA520" : "#1a1a1a",
                             border: `1px solid ${active ? "#22BB22" : isHome ? "#B8860B" : "#444"}`,
                             boxShadow: active ? "0 0 4px #22BB22" : isHome ? "0 0 3px #DAA520" : "none",
@@ -161,7 +154,7 @@ export function PhoneModal({ open, onClose, onDial, timezone }: PhoneModalProps)
                         {/* Jack socket */}
                         <div
                           style={{
-                            width: 20, height: 20, borderRadius: "50%",
+                            width: 30, height: 30, borderRadius: "50%",
                             background: active
                               ? "linear-gradient(135deg, #1a5a1a, #0a3a0a)"
                               : isHome
@@ -173,13 +166,13 @@ export function PhoneModal({ open, onClose, onDial, timezone }: PhoneModalProps)
                             display: "flex", alignItems: "center", justifyContent: "center",
                           }}
                         >
-                          {active && <div style={{ width: 6, height: 6, background: "#1a1008", borderRadius: "50%" }} />}
+                          {active && <div style={{ width: 8, height: 8, background: "#1a1008", borderRadius: "50%" }} />}
                         </div>
                         <span
-                          className="font-typewriter"
-                          style={{ fontSize: 7, color: active ? "#228B22" : isHome ? "#DAA520" : "#555", whiteSpace: "nowrap" }}
+                          className="font-typewriter tracking-widest"
+                          style={{ fontSize: 9, color: active ? "#228B22" : isHome ? "#DAA520" : "#888", whiteSpace: "nowrap" }}
                         >
-                          {shortLabel(tz)}
+                          Л{ln}
                         </span>
                       </div>
                     );
@@ -200,7 +193,7 @@ export function PhoneModal({ open, onClose, onDial, timezone }: PhoneModalProps)
                     }}
                   />
                   <span className="font-typewriter text-[10px]" style={{ color: "#666" }}>
-                    {selectedLine ? `Подключено: ${selectedLine}` : "Перетащите кабель на канал"}
+                    {selectedLine ? `Подключено: ЛИНИЯ ${selectedLine}` : "Перетащите кабель на линию"}
                   </span>
                 </div>
 
@@ -236,7 +229,7 @@ export function PhoneModal({ open, onClose, onDial, timezone }: PhoneModalProps)
                   style={{ height: 180, background: "rgba(0,0,0,0.3)", border: "2px dashed #3a2a18" }}
                 >
                   <div className="font-typewriter text-xs tracking-widest uppercase text-center" style={{ color: "#5a3a18" }}>
-                    Подключите канал<br />для набора
+                    Подключите линию<br />для набора
                   </div>
                 </div>
               )}

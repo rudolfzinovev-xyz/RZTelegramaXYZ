@@ -4,14 +4,10 @@ import { motion } from "framer-motion";
 
 const LINE_KEY = "rz:phone_line";
 
-const TIMEZONES = [
-  "UTC-12", "UTC-10", "UTC-8", "UTC-6", "UTC-4", "UTC-2",
-  "UTC+0", "UTC+1", "UTC+2", "UTC+3", "UTC+4", "UTC+5",
-  "UTC+6", "UTC+7", "UTC+8", "UTC+9", "UTC+10", "UTC+12",
-];
+const LINES = ["1", "2", "3", "4", "5", "6"];
 
 interface Props {
-  homeTimezone: string;
+  homeLine: number;
 }
 
 function playPlugSound() {
@@ -28,7 +24,8 @@ function playPlugSound() {
   } catch { /* audio not available */ }
 }
 
-export function MobileSwitchboard({ homeTimezone }: Props) {
+export function MobileSwitchboard({ homeLine }: Props) {
+  const homeLineStr = String(homeLine);
   const [line, setLine] = useState<string | null>(null);
   const [cableEnd, setCableEnd] = useState<{ x: number; y: number } | null>(null);
   const boardRef = useRef<HTMLDivElement>(null);
@@ -57,9 +54,9 @@ export function MobileSwitchboard({ homeTimezone }: Props) {
     return () => window.removeEventListener("resize", recompute);
   }, [line]);
 
-  function togglePlug(tz: string) {
+  function togglePlug(ln: string) {
     playPlugSound();
-    const next = line === tz ? null : tz;
+    const next = line === ln ? null : ln;
     setLine(next);
     if (typeof window !== "undefined") {
       if (next) localStorage.setItem(LINE_KEY, next);
@@ -95,7 +92,7 @@ export function MobileSwitchboard({ homeTimezone }: Props) {
           className="font-courier"
           style={{ color: line ? "#228B22" : "#8B1A1A", fontSize: 9, letterSpacing: "0.1em" }}
         >
-          {line ? `● ${line}` : "○ НЕТ ЛИНИИ"}
+          {line ? `● ЛИНИЯ ${line}` : "○ НЕТ ЛИНИИ"}
         </span>
       </div>
 
@@ -126,18 +123,18 @@ export function MobileSwitchboard({ homeTimezone }: Props) {
           </span>
         </div>
 
-        {/* Socket grid */}
+        {/* Socket grid — 6 lines */}
         <div
-          className="flex-1 grid gap-x-2 gap-y-2"
+          className="flex-1 grid gap-x-3 gap-y-2"
           style={{ gridTemplateColumns: "repeat(6, minmax(0, 1fr))" }}
         >
-          {TIMEZONES.map(tz => {
-            const active = line === tz;
-            const home = tz === homeTimezone;
+          {LINES.map(ln => {
+            const active = line === ln;
+            const home = ln === homeLineStr;
             return (
               <button
-                key={tz}
-                onClick={() => togglePlug(tz)}
+                key={ln}
+                onClick={() => togglePlug(ln)}
                 className="flex flex-col items-center gap-1 no-select tap-target"
                 style={{
                   background: "transparent",
@@ -147,17 +144,17 @@ export function MobileSwitchboard({ homeTimezone }: Props) {
                   minHeight: 0,
                   minWidth: 0,
                 }}
-                aria-label={`Подключить канал ${tz}`}
+                aria-label={`Подключить линию ${ln}`}
               >
                 <div
                   ref={(el) => {
-                    if (el) socketRefs.current.set(tz, el);
-                    else socketRefs.current.delete(tz);
+                    if (el) socketRefs.current.set(ln, el);
+                    else socketRefs.current.delete(ln);
                   }}
                   className="rounded-full flex items-center justify-center transition-all"
                   style={{
-                    width: 22,
-                    height: 22,
+                    width: 30,
+                    height: 30,
                     background: active
                       ? "linear-gradient(135deg, #DAA520, #B8860B)"
                       : "linear-gradient(135deg, #444, #222)",
@@ -170,8 +167,8 @@ export function MobileSwitchboard({ homeTimezone }: Props) {
                   {active && (
                     <div
                       style={{
-                        width: 6,
-                        height: 6,
+                        width: 8,
+                        height: 8,
                         background: "#1a1008",
                         borderRadius: "50%",
                       }}
@@ -179,15 +176,14 @@ export function MobileSwitchboard({ homeTimezone }: Props) {
                   )}
                 </div>
                 <span
-                  className="font-courier text-center"
+                  className="font-courier text-center tracking-widest"
                   style={{
-                    fontSize: 8,
-                    color: active ? "#DAA520" : home ? "#B8860B" : "#666",
+                    fontSize: 10,
+                    color: active ? "#DAA520" : home ? "#B8860B" : "#888",
                     lineHeight: 1.2,
-                    letterSpacing: "0.02em",
                   }}
                 >
-                  {tz}
+                  Л{ln}
                 </span>
               </button>
             );

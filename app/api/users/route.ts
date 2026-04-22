@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
     const phone = normalizePhone(raw);
     const user = await prisma.user.findUnique({
       where: { phone },
-      select: { id: true, name: true, username: true, phone: true, timezone: true, publicKey: true },
+      select: { id: true, name: true, username: true, phone: true, timezone: true, line: true, publicKey: true },
     });
     if (!user) return NextResponse.json({ error: "not found" }, { status: 404 });
     return NextResponse.json(user);
@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
 
   const users = await prisma.user.findMany({
     where: exclude ? { id: { not: exclude } } : undefined,
-    select: { id: true, name: true, username: true, phone: true, timezone: true, publicKey: true },
+    select: { id: true, name: true, username: true, phone: true, timezone: true, line: true, publicKey: true },
     orderBy: { name: "asc" },
   });
   return NextResponse.json(users);
@@ -81,12 +81,14 @@ export async function POST(req: NextRequest) {
   }
 
   const passwordHash = await bcrypt.hash(password, 10);
+  // Line is assigned randomly on server; clients never choose it.
+  const line = Math.floor(Math.random() * 6) + 1;
   const user = await prisma.user.create({
     data: {
-      username, name, phone, passwordHash, timezone,
+      username, name, phone, passwordHash, timezone, line,
       publicKey, encryptedPrivateKey, privateKeyNonce, privateKeySalt,
     },
-    select: { id: true, username: true, name: true, phone: true, timezone: true },
+    select: { id: true, username: true, name: true, phone: true, timezone: true, line: true },
   });
 
   return NextResponse.json(user, { status: 201 });

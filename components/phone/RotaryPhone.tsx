@@ -185,7 +185,7 @@ export function RotaryPhone({ callState, remoteUser, timezone, onPickUp, onOpen 
           }}
         />
         <span className="font-typewriter text-[9px] tracking-widest" style={{ color: currentLine ? "#228B22" : "#5a3a1a" }}>
-          {currentLine ? currentLine : "НЕТ ЛИНИИ"}
+          {currentLine ? `ЛИНИЯ ${currentLine}` : "НЕТ ЛИНИИ"}
         </span>
       </div>
 

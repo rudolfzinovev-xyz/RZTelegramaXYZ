@@ -24,6 +24,7 @@ export interface MobileUser {
   name: string;
   phone: string;
   timezone: string;
+  line: number;
 }
 
 export interface MobileMessage {
@@ -118,8 +119,8 @@ export function MobileDeskClient({ user }: { user: MobileUser }) {
       wrongLineRef.current = null;
       const sysMsg: MobileMessage = {
         id: `sys-${Date.now()}`,
-        content: `СОЕДИНЕНИЕ НЕ УСТАНОВЛЕНО\nАбонент находится на канале ${receiverLine}.\nПодключите нужный канал и повторите звонок.`,
-        senderName: "СИСТЕМА",
+        content: `СОЕДИНЕНИЕ НЕ УСТАНОВЛЕНО\nАбонент на линии ${receiverLine}.\nПодключите кабель к нужной линии и повторите звонок.`,
+        senderName: "system",
         senderPhone: "",
         senderTimezone: user.timezone,
         createdAt: new Date().toISOString(),
@@ -127,7 +128,6 @@ export function MobileDeskClient({ user }: { user: MobileUser }) {
       };
       setLoosePapers(p => [sysMsg, ...p]);
       setUnreadIds(s => new Set(s).add(sysMsg.id));
-      flashToast("Неверный канал — сообщение сохранено", "err");
     }
     prevCallStateRef.current = callState;
   }, [callState, user.timezone]);
@@ -250,15 +250,27 @@ export function MobileDeskClient({ user }: { user: MobileUser }) {
       deliveredTimerRef.current = setTimeout(() => setSendStatus("idle"), 2500);
     });
 
-    socket.on("message:offline", () => {
+    socket.on("message:offline", (data: { messageId: string; receiverName: string; receiverPhone: string }) => {
       setSendStatus("idle");
-      flashToast("Абонент не в сети — сохранено на сервере", "info");
+      const who = data.receiverName || data.receiverPhone || "абонент";
+      const sysMsg: MobileMessage = {
+        id: `sys-off-${data.messageId || Date.now()}`,
+        content: `АБОНЕНТ НЕ В СЕТИ\n${who} сейчас не на связи.\nСообщение сохранено на сервере и будет доставлено при подключении.`,
+        senderName: "system",
+        senderPhone: "",
+        senderTimezone: user.timezone,
+        createdAt: new Date().toISOString(),
+        folderId: null,
+      };
+      setLoosePapers(p => [sysMsg, ...p]);
+      setUnreadIds(s => new Set(s).add(sysMsg.id));
     });
 
     socket.on("call:incoming", (data: any) => {
       const callerLine = data.callerLine ?? null;
-      if (callerLine && callerLine !== user.timezone) {
-        socket.emit("call:wrong_line", { callerId: data.callerId, receiverLine: user.timezone });
+      const myLine = String(user.line);
+      if (callerLine && callerLine !== myLine) {
+        socket.emit("call:wrong_line", { callerId: data.callerId, receiverLine: myLine });
         return;
       }
       handleIncomingCall(data);
@@ -267,6 +279,7 @@ export function MobileDeskClient({ user }: { user: MobileUser }) {
 
     socket.on("call:wrong_line", ({ receiverLine }: { receiverLine: string }) => {
       wrongLineRef.current = receiverLine;
+      cancelCall();
     });
 
     socket.on("call:busy", () => {
@@ -425,7 +438,7 @@ export function MobileDeskClient({ user }: { user: MobileUser }) {
         )}
         {tab === "phone" && (
           <PhoneTab
-            timezone={user.timezone}
+            homeLine={user.line}
             onDial={handleDial}
             callState={callState}
           />

@@ -1,9 +1,10 @@
 "use client";
-import { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { useEffect, useState } from "react";
+import { AnimatePresence } from "framer-motion";
 import { formatInTZ } from "@/lib/tz";
 import type { MobileMessage, MobileFolder, MobileUser } from "@/app/desk/MobileDeskClient";
 import { FolderPickerSheet } from "./FolderPickerSheet";
+import { enablePushWithGesture, type PushStatus } from "@/lib/push";
 
 interface Props {
   user: MobileUser;
@@ -22,6 +23,22 @@ export function MoreTab({
 }: Props) {
   const [confirmLogout, setConfirmLogout] = useState(false);
   const [pickerForMsg, setPickerForMsg] = useState<string | null>(null);
+  const [pushStatus, setPushStatus] = useState<PushStatus | "idle" | "working">("idle");
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !("Notification" in window)) {
+      setPushStatus("unsupported"); return;
+    }
+    if (Notification.permission === "granted") setPushStatus("subscribed");
+    else if (Notification.permission === "denied") setPushStatus("permission-denied");
+    else setPushStatus("permission-default");
+  }, []);
+
+  async function handleEnablePush() {
+    setPushStatus("working");
+    const s = await enablePushWithGesture();
+    setPushStatus(s);
+  }
 
   return (
     <div style={{ paddingBottom: 80 }}>
@@ -57,7 +74,7 @@ export function MoreTab({
                 {user.phone}
               </div>
               <div className="font-courier text-[11px]" style={{ color: "#6a5030" }}>
-                Канал: {user.timezone}
+                Линия: Л{user.line} · {user.timezone}
               </div>
             </div>
           </div>
@@ -180,8 +197,69 @@ export function MoreTab({
         >
           <div style={{ color: "#c8b890" }}>🔒 Сквозное шифрование</div>
           <div className="mt-1">Сообщения шифруются на устройстве и читаются только получателем. Сервер видит только зашифрованные блобы.</div>
-          <div className="mt-3" style={{ color: "#c8b890" }}>📡 Часовой пояс — линия</div>
-          <div className="mt-1">Чтобы дозвониться, нужно подключить кабель к нужному каналу собеседника.</div>
+          <div className="mt-3" style={{ color: "#c8b890" }}>📡 Линия связи</div>
+          <div className="mt-1">Всего 6 линий; каждому абоненту при регистрации назначается одна. Чтобы дозвониться, подключите кабель к линии собеседника.</div>
+        </div>
+      </section>
+
+      {/* Push notifications */}
+      <section className="pt-5 px-4">
+        <div className="flex items-baseline justify-between py-2">
+          <span
+            className="font-typewriter tracking-[0.2em] uppercase"
+            style={{ color: "#DAA520", fontSize: 11 }}
+          >
+            Уведомления
+          </span>
+        </div>
+        <div
+          style={{
+            background: "rgba(255,255,255,0.03)",
+            border: "1px solid rgba(218,165,32,0.15)",
+            borderRadius: 6,
+            padding: "12px 14px",
+          }}
+        >
+          <div className="font-courier text-[11px] leading-relaxed" style={{ color: "#8a7050" }}>
+            {pushStatus === "subscribed" && (
+              <span style={{ color: "#90EE90" }}>✓ Push включён — сообщения и звонки придут даже когда приложение закрыто.</span>
+            )}
+            {pushStatus === "permission-default" && (
+              <>Включите push, чтобы получать уведомления при закрытом приложении (Android Chrome требует явного нажатия).</>
+            )}
+            {pushStatus === "permission-denied" && (
+              <span style={{ color: "#CC6666" }}>Push заблокирован в настройках браузера. Откройте настройки сайта и разрешите уведомления.</span>
+            )}
+            {pushStatus === "no-vapid" && (
+              <span style={{ color: "#CC6666" }}>Сервер push не настроен (нет VAPID ключей).</span>
+            )}
+            {pushStatus === "unsupported" && (
+              <span style={{ color: "#CC6666" }}>Браузер не поддерживает push.</span>
+            )}
+            {pushStatus === "error" && (
+              <span style={{ color: "#CC6666" }}>Не удалось подписаться. Попробуйте ещё раз.</span>
+            )}
+            {pushStatus === "working" && <>Подписываемся…</>}
+            {pushStatus === "idle" && <>Проверяем состояние…</>}
+          </div>
+          {(pushStatus === "permission-default" || pushStatus === "error") && (
+            <button
+              onClick={handleEnablePush}
+              className="mt-3 w-full font-typewriter text-xs tracking-wider tap-target no-select"
+              style={{
+                background: "linear-gradient(135deg, #B8860B, #8a6608)",
+                color: "#1a1008",
+                border: "1px solid #5a4008",
+                borderRadius: 6,
+                padding: "12px",
+                cursor: "pointer",
+                textTransform: "uppercase",
+                letterSpacing: "0.15em",
+              }}
+            >
+              Включить уведомления
+            </button>
+          )}
         </div>
       </section>
 
