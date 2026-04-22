@@ -6,6 +6,7 @@ import { getSocket } from "@/lib/socket";
 import { useWebRTC } from "@/lib/useWebRTC";
 import { decryptMessage, loadPrivateKey, clearPrivateKey } from "@/lib/crypto";
 import { ensureNotificationPermission, notify } from "@/lib/notifications";
+import { registerPush } from "@/lib/push";
 
 import { MobileTopBar } from "@/components/mobile/MobileTopBar";
 import { MobileBottomNav, type MobileTab } from "@/components/mobile/MobileBottomNav";
@@ -131,9 +132,13 @@ export function MobileDeskClient({ user }: { user: MobileUser }) {
     prevCallStateRef.current = callState;
   }, [callState, user.timezone]);
 
-  // Ask for notification permission once after mount.
+  // Ask for notification permission once after mount, then register the
+  // service worker and push subscription (no-op if permission denied).
   useEffect(() => {
-    ensureNotificationPermission();
+    (async () => {
+      await ensureNotificationPermission();
+      await registerPush();
+    })();
   }, []);
 
   // Track all known message IDs across buckets so re-syncs don't duplicate.

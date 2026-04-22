@@ -24,7 +24,8 @@
     "socket.io": "^4.8.3",
     "socket.io-client": "^4.8.3",
     "tweetnacl": "^1.0.3",
-    "tweetnacl-util": "^0.15.1"
+    "tweetnacl-util": "^0.15.1",
+    "web-push": "^3.6.7"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
@@ -33,6 +34,7 @@
     "@types/react": "^18.3.28",
     "@types/react-dom": "^18.3.7",
     "@types/simple-peer": "^9.11.9",
+    "@types/web-push": "^3.6.4",
     "eslint": "^9",
     "eslint-config-next": "16.2.4",
     "tailwindcss": "^4",

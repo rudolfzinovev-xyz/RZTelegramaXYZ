@@ -3,8 +3,47 @@ const { parse } = require("url");
 const next = require("next");
 const { Server } = require("socket.io");
 const { PrismaClient } = require("@prisma/client");
+const webpush = require("web-push");
 
 const prisma = new PrismaClient();
+
+// Configure Web Push only if VAPID keys are set; otherwise push delivery is silently skipped.
+const VAPID_PUBLIC = process.env.VAPID_PUBLIC_KEY || "";
+const VAPID_PRIVATE = process.env.VAPID_PRIVATE_KEY || "";
+const VAPID_SUBJECT = process.env.VAPID_SUBJECT || "mailto:admin@rztelegrama.xyz";
+const pushEnabled = Boolean(VAPID_PUBLIC && VAPID_PRIVATE);
+if (pushEnabled) {
+  webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC, VAPID_PRIVATE);
+} else {
+  console.warn("[push] VAPID keys missing — web push disabled");
+}
+
+async function sendPushToUser(userId, payload) {
+  if (!pushEnabled || !userId) return;
+  try {
+    const subs = await prisma.pushSubscription.findMany({ where: { userId } });
+    if (!subs.length) return;
+    const body = JSON.stringify(payload);
+    await Promise.all(subs.map(async (s) => {
+      try {
+        await webpush.sendNotification(
+          { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } },
+          body,
+          { TTL: 60 }
+        );
+      } catch (err) {
+        // 404/410 → subscription is dead, drop it.
+        if (err && (err.statusCode === 404 || err.statusCode === 410)) {
+          await prisma.pushSubscription.delete({ where: { endpoint: s.endpoint } }).catch(() => {});
+        } else {
+          console.warn("[push] send failed", err?.statusCode, err?.body || err?.message);
+        }
+      }
+    }));
+  } catch (err) {
+    console.warn("[push] sendPushToUser error", err);
+  }
+}
 
 const dev = process.env.NODE_ENV !== "production";
 const app = next({ dev });
@@ -61,6 +100,15 @@ app.prepare().then(() => {
         } else {
           io.to(socket.id).emit("message:offline", { messageId: fresh.id });
         }
+        // Always fire push too — covers the case where the receiver has the
+        // page open but backgrounded (socket may still be alive, yet the JS
+        // loop is throttled/frozen on mobile). SW shows OS-level notification.
+        sendPushToUser(fresh.receiverId, {
+          title: "Новое сообщение",
+          body: `От: ${fresh.sender?.name || fresh.sender?.phone || "неизвестно"}`,
+          tag: `msg-${fresh.id}`,
+          url: "/desk",
+        });
       } catch {
         // swallow — client gets no delivery ack and will show the message as sent
       }
@@ -81,6 +129,15 @@ app.prepare().then(() => {
           offer,
         });
       }
+      // Always fire a push for incoming calls — waking the SW lets the OS
+      // surface the ring even when the PWA is in the background.
+      sendPushToUser(receiverId, {
+        title: "Входящий звонок",
+        body: callerName || callerPhone || "Неизвестный",
+        tag: "incoming-call",
+        requireInteraction: true,
+        url: "/desk",
+      });
     });
 
     socket.on("call:answer", (data) => {

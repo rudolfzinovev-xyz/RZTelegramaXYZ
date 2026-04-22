@@ -21,6 +21,7 @@ import { MissedInbox } from "@/components/desk/MissedInbox";
 import { TrashBin } from "@/components/desk/TrashBin";
 import { decryptMessage, loadPrivateKey, clearPrivateKey } from "@/lib/crypto";
 import { ensureNotificationPermission, notify } from "@/lib/notifications";
+import { registerPush } from "@/lib/push";
 
 interface User {
   id: string;
@@ -162,9 +163,13 @@ export function DeskClient({ user }: { user: User }) {
     return () => window.removeEventListener("focus", onFocus);
   }, []);
 
-  // Ask for notification permission once after mount.
+  // Ask for notification permission once after mount, then register the
+  // service worker and push subscription (no-op if permission denied).
   useEffect(() => {
-    ensureNotificationPermission();
+    (async () => {
+      await ensureNotificationPermission();
+      await registerPush();
+    })();
   }, []);
 
   // Track all known message IDs across buckets for re-sync dedup.
