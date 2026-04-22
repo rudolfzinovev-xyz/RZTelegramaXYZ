@@ -40,6 +40,17 @@ export const authOptions: NextAuthOptions = {
         token.timezone = (user as any).timezone;
         token.line = (user as any).line;
       }
+      // Re-fetch line from DB on every token refresh so stale JWTs
+      // (issued before the line field existed) always get the correct value.
+      if (token.id && !token.line) {
+        try {
+          const fresh = await prisma.user.findUnique({
+            where: { id: token.id as string },
+            select: { line: true },
+          });
+          if (fresh) token.line = fresh.line;
+        } catch { /* ignore */ }
+      }
       return token;
     },
     async session({ session, token }) {
