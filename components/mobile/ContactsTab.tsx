@@ -8,6 +8,7 @@ interface Contact {
   username: string;
   phone: string;
   timezone: string;
+  line?: number;
 }
 
 interface Props {
@@ -139,6 +140,11 @@ export function ContactsTab({ currentUserId, onCall, onMessage }: Props) {
                 <div className="font-courier text-[11px]" style={{ color: "#8a7050" }}>
                   {contact.phone} · {contact.timezone}
                 </div>
+                {contact.line && (
+                  <div className="font-typewriter text-[10px] font-bold" style={{ color: "#DAA520" }}>
+                    ЛИНИЯ {contact.line}
+                  </div>
+                )}
               </div>
               <div
                 className="font-typewriter text-[10px] tracking-widest flex-shrink-0"
@@ -212,6 +218,11 @@ export function ContactsTab({ currentUserId, onCall, onMessage }: Props) {
                     <div className="font-courier text-[11px]" style={{ color: "#6a5030" }}>
                       {selected.phone} · {selected.timezone}
                     </div>
+                    {selected.line && (
+                      <div className="font-typewriter text-[10px] font-bold" style={{ color: "#DAA520" }}>
+                        ЛИНИЯ {selected.line}
+                      </div>
+                    )}
                   </div>
                 </div>
 

@@ -8,6 +8,7 @@ interface Contact {
   username: string;
   phone: string;
   timezone: string;
+  line?: number;
 }
 
 interface PhoneBookProps {
@@ -157,6 +158,9 @@ export function PhoneBook({ currentUserId, onCallContact, onMessageContact }: Ph
                           <div className="font-typewriter text-[#1a1008] text-sm truncate">{contact.name}</div>
                           <div className="font-courier text-xs text-[#5a3a1a]">@{contact.username}</div>
                           <div className="font-courier text-xs text-[#8a6a4a]">{contact.phone} · {contact.timezone}</div>
+                          {contact.line && (
+                            <div className="font-courier text-xs font-bold" style={{ color: "#DAA520" }}>ЛИНИЯ {contact.line}</div>
+                          )}
                         </div>
                         <div className="flex flex-col gap-1 flex-shrink-0">
                           <button

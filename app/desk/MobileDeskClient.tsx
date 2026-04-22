@@ -368,7 +368,7 @@ export function MobileDeskClient({ user }: { user: MobileUser }) {
     if (!res.ok) { flashToast("Абонент не найден", "err"); return; }
     const target = await res.json();
     const chosenLine = line ?? localStorage.getItem("rz:phone_line") ?? undefined;
-    if (!chosenLine) { flashToast("Сначала выберите канал", "err"); return; }
+    if (!chosenLine) flashToast("Линия не выбрана — звоним без линии", "info");
     await initiateCall(target, chosenLine);
   }, [initiateCall]);
 
@@ -383,7 +383,7 @@ export function MobileDeskClient({ user }: { user: MobileUser }) {
 
   function handleCallContact(contact: { id: string; name: string; phone: string }) {
     const line = localStorage.getItem("rz:phone_line") ?? undefined;
-    if (!line) { flashToast("Сначала подключите канал", "err"); setTab("phone"); return; }
+    if (!line) flashToast("Линия не выбрана — звоним без линии", "info");
     initiateCall(contact, line);
   }
 
