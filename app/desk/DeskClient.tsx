@@ -20,6 +20,8 @@ import { MessageSlip } from "@/components/folder/MessageSlip";
 import { MissedInbox } from "@/components/desk/MissedInbox";
 import { TrashBin } from "@/components/desk/TrashBin";
 import { DraggableSlot } from "@/components/desk/DraggableSlot";
+import { MusicPlayerProvider } from "@/components/desk/MusicPlayerContext";
+import { MusicPlayerModal } from "@/components/desk/MusicPlayerModal";
 import { decryptMessage, loadPrivateKey, clearPrivateKey } from "@/lib/crypto";
 import { ensureNotificationPermission, notify } from "@/lib/notifications";
 import { registerPush } from "@/lib/push";
@@ -492,6 +494,7 @@ export function DeskClient({ user }: { user: User }) {
   const isPrinting = currentStrip !== null;
 
   return (
+    <MusicPlayerProvider>
     <DndContext onDragEnd={handleDropToFolder}>
       <div className="desk-surface w-screen h-screen overflow-hidden relative">
         {/* User info bar */}
@@ -791,6 +794,8 @@ export function DeskClient({ user }: { user: User }) {
         </AnimatePresence>
 
       </div>
+      <MusicPlayerModal />
     </DndContext>
+    </MusicPlayerProvider>
   );
 }

@@ -18,6 +18,9 @@ import { ComposeScreen } from "@/components/mobile/ComposeScreen";
 import { ReadMessageScreen } from "@/components/mobile/ReadMessageScreen";
 import { CallScreen } from "@/components/mobile/CallScreen";
 import { MobileToast } from "@/components/mobile/MobileToast";
+import { MobileMusicMini } from "@/components/mobile/MobileMusicMini";
+import { MusicPlayerProvider } from "@/components/desk/MusicPlayerContext";
+import { MusicPlayerModal } from "@/components/desk/MusicPlayerModal";
 
 export interface MobileUser {
   id: string;
@@ -397,6 +400,7 @@ export function MobileDeskClient({ user }: { user: MobileUser }) {
   const inCall = callState !== "idle";
 
   return (
+    <MusicPlayerProvider>
     <div
       className="relative"
       style={{
@@ -523,6 +527,13 @@ export function MobileDeskClient({ user }: { user: MobileUser }) {
       <AnimatePresence>
         {toast && <MobileToast text={toast.text} kind={toast.kind} />}
       </AnimatePresence>
+
+      {/* Mini music bar above bottom nav (hidden during full-screen call) */}
+      {!inCall && <MobileMusicMini />}
+
+      {/* Full music modal — single instance at root, opens via context */}
+      <MusicPlayerModal />
     </div>
+    </MusicPlayerProvider>
   );
 }
