@@ -26,6 +26,20 @@ model User {
   receivedMessages Message[] @relation("receiver")
   folders          Folder[]
   pushSubscriptions PushSubscription[]
+  contactsAdded    Contact[] @relation("contactsOwner")
+  contactsBy       Contact[] @relation("contactsTarget")
+}
+
+model Contact {
+  id        String   @id @default(cuid())
+  ownerId   String
+  owner     User     @relation("contactsOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  contactId String
+  contact   User     @relation("contactsTarget", fields: [contactId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([ownerId, contactId])
+  @@index([ownerId])
 }
 
 model PushSubscription {

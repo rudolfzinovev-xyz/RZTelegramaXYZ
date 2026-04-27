@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface Contact {
@@ -9,6 +9,7 @@ interface Contact {
   phone: string;
   timezone: string;
   line?: number;
+  isContact?: boolean;
 }
 
 interface Props {
@@ -17,38 +18,113 @@ interface Props {
   onMessage: (contact: Contact) => void;
 }
 
+type Mode = "all" | "saved";
+
 export function ContactsTab({ currentUserId, onCall, onMessage }: Props) {
+  const [mode, setMode] = useState<Mode>("all");
   const [contacts, setContacts] = useState<Contact[]>([]);
+  const [savedContacts, setSavedContacts] = useState<Contact[]>([]);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
   const [selected, setSelected] = useState<Contact | null>(null);
+  const [busy, setBusy] = useState(false);
 
-  useEffect(() => {
+  const reload = useCallback(async () => {
     setLoading(true);
-    fetch(`/api/users?exclude=${currentUserId}`)
-      .then(r => r.json())
-      .then(data => setContacts(Array.isArray(data) ? data : []))
-      .catch(() => setContacts([]))
-      .finally(() => setLoading(false));
+    try {
+      const [allRes, savedRes] = await Promise.all([
+        fetch(`/api/users?exclude=${currentUserId}`),
+        fetch("/api/contacts"),
+      ]);
+      const allData = allRes.ok ? await allRes.json() : [];
+      const savedData = savedRes.ok ? await savedRes.json() : [];
+      setContacts(Array.isArray(allData) ? allData : []);
+      setSavedContacts(Array.isArray(savedData) ? savedData : []);
+    } finally {
+      setLoading(false);
+    }
   }, [currentUserId]);
+
+  useEffect(() => { reload(); }, [reload]);
+
+  async function toggleSaved(c: Contact) {
+    setBusy(true);
+    try {
+      const isSaved = savedContacts.some(s => s.id === c.id);
+      if (isSaved) {
+        await fetch(`/api/contacts?contactId=${c.id}`, { method: "DELETE" });
+      } else {
+        await fetch("/api/contacts", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ contactId: c.id }),
+        });
+      }
+      await reload();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const list = mode === "saved" ? savedContacts : contacts;
+  const savedIds = useMemo(() => new Set(savedContacts.map(s => s.id)), [savedContacts]);
 
   const filtered = useMemo(() => {
     const query = q.trim().toLowerCase();
-    if (!query) return contacts;
-    return contacts.filter(c =>
+    if (!query) return list;
+    return list.filter(c =>
       c.name.toLowerCase().includes(query) ||
       c.username.toLowerCase().includes(query) ||
       c.phone.includes(query)
     );
-  }, [contacts, q]);
+  }, [list, q]);
+
+  const selectedIsSaved = selected ? savedIds.has(selected.id) : false;
 
   return (
     <div style={{ paddingBottom: 80 }}>
+      {/* Mode toggle */}
+      <div
+        className="sticky z-20 px-3 pt-2 pb-1"
+        style={{
+          top: 48,
+          background: "linear-gradient(180deg, rgba(26,16,8,0.97), rgba(26,16,8,0.88))",
+          backdropFilter: "blur(6px)",
+          WebkitBackdropFilter: "blur(6px)",
+        }}
+      >
+        <div
+          className="grid grid-cols-2 gap-1 rounded p-1"
+          style={{ background: "rgba(0,0,0,0.4)", border: "1px solid rgba(218,165,32,0.18)" }}
+        >
+          {(["all", "saved"] as Mode[]).map(m => (
+            <button
+              key={m}
+              onClick={() => setMode(m)}
+              className="font-typewriter text-[11px] tap-target no-select"
+              style={{
+                background: mode === m ? "linear-gradient(135deg, #B8860B, #DAA520)" : "transparent",
+                color: mode === m ? "#1a1008" : "#8a7050",
+                border: "none",
+                borderRadius: 4,
+                padding: "8px",
+                cursor: "pointer",
+                letterSpacing: "0.15em",
+                textTransform: "uppercase",
+                fontWeight: mode === m ? "bold" : "normal",
+              }}
+            >
+              {m === "all" ? `Справочник · ${contacts.length}` : `Контакты · ${savedContacts.length}`}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* Search */}
       <div
         className="sticky z-20 px-3 py-2"
         style={{
-          top: 48,
+          top: 96,
           background: "linear-gradient(180deg, rgba(26,16,8,0.97), rgba(26,16,8,0.88))",
           backdropFilter: "blur(6px)",
           WebkitBackdropFilter: "blur(6px)",
@@ -101,24 +177,48 @@ export function ContactsTab({ currentUserId, onCall, onMessage }: Props) {
           </p>
         )}
         {!loading && filtered.length === 0 && (
-          <p className="text-center font-typewriter text-xs py-10" style={{ color: "#5a4020" }}>
-            {q ? "Никого не нашли" : "Нет абонентов"}
+          <p className="text-center font-typewriter text-xs py-10 px-4" style={{ color: "#5a4020" }}>
+            {q
+              ? "Никого не нашли"
+              : mode === "saved"
+                ? "Никого не отмечено. Откройте справочник и пометьте абонента красным карандашом."
+                : "Нет абонентов"}
           </p>
         )}
-        {filtered.map(contact => (
+        {filtered.map(contact => {
+          const marked = savedIds.has(contact.id);
+          return (
           <motion.button
             key={contact.id}
             whileTap={{ scale: 0.98 }}
             onClick={() => setSelected(contact)}
-            className="w-full text-left no-select"
+            className="w-full text-left no-select relative"
             style={{
               background: "linear-gradient(135deg, rgba(245,232,200,0.04), rgba(245,232,200,0.02))",
-              border: "1px solid rgba(218,165,32,0.18)",
+              border: marked ? "2px solid #c43a2a" : "1px solid rgba(218,165,32,0.18)",
               borderRadius: 6,
               padding: "12px 14px",
               cursor: "pointer",
+              boxShadow: marked ? "1px 1px 0 rgba(196,58,42,0.6), -1px -1px 0 rgba(196,58,42,0.3)" : "none",
+              transform: marked ? "rotate(-0.2deg)" : "none",
             }}
           >
+            {marked && (
+              <span
+                aria-hidden
+                className="absolute font-typewriter"
+                style={{
+                  top: -8,
+                  right: 10,
+                  color: "#c43a2a",
+                  fontSize: 14,
+                  transform: "rotate(8deg)",
+                  pointerEvents: "none",
+                }}
+              >
+                ✓
+              </span>
+            )}
             <div className="flex items-center gap-3">
               <div
                 className="flex-shrink-0 flex items-center justify-center rounded-full font-typewriter"
@@ -154,7 +254,8 @@ export function ContactsTab({ currentUserId, onCall, onMessage }: Props) {
               </div>
             </div>
           </motion.button>
-        ))}
+          );
+        })}
       </div>
 
       {/* Action sheet */}
@@ -258,6 +359,23 @@ export function ContactsTab({ currentUserId, onCall, onMessage }: Props) {
                     }}
                   >
                     ✎ Написать
+                  </button>
+                  <button
+                    onClick={async () => { if (selected) { await toggleSaved(selected); setSelected(null); } }}
+                    disabled={busy}
+                    className="w-full font-typewriter text-sm tracking-wider tap-target no-select"
+                    style={{
+                      background: selectedIsSaved ? "rgba(196,58,42,0.12)" : "transparent",
+                      color: "#c43a2a",
+                      border: "1px solid #c43a2a",
+                      borderRadius: 8,
+                      padding: "14px",
+                      cursor: busy ? "wait" : "pointer",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.15em",
+                    }}
+                  >
+                    {selectedIsSaved ? "✕ Убрать из контактов" : "✎ В книгу контактов"}
                   </button>
                   <button
                     onClick={() => setSelected(null)}

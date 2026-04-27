@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 
 function normalizePhone(raw: string): string {
   const digits = raw.replace(/\D/g, "");
@@ -30,7 +32,19 @@ export async function GET(req: NextRequest) {
     select: { id: true, name: true, username: true, phone: true, timezone: true, line: true, publicKey: true },
     orderBy: { name: "asc" },
   });
-  return NextResponse.json(users);
+
+  // Mark contacts saved by the current user so the UI can show the
+  // red-pencil "this is in your contacts book" marker.
+  const session = await getServerSession(authOptions);
+  if (session?.user?.id) {
+    const saved = await prisma.contact.findMany({
+      where: { ownerId: session.user.id },
+      select: { contactId: true },
+    });
+    const savedSet = new Set(saved.map(s => s.contactId));
+    return NextResponse.json(users.map(u => ({ ...u, isContact: savedSet.has(u.id) })));
+  }
+  return NextResponse.json(users.map(u => ({ ...u, isContact: false })));
 }
 
 // POST /api/users — register

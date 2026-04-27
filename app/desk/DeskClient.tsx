@@ -111,6 +111,9 @@ export function DeskClient({ user }: { user: User }) {
   // Wastebasket
   const [trashedMessages, setTrashedMessages] = useState<MessageData[]>([]);
 
+  // Bumped to force PhoneBook reload after marking/unmarking a contact.
+  const [contactsRev, setContactsRev] = useState(0);
+
   // Title blink ref
   const titleBlinkRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -519,12 +522,27 @@ export function DeskClient({ user }: { user: User }) {
               />
             </div>
 
-            {/* Phone book — right */}
-            <div className="absolute" style={{ right: 80, top: 80 }}>
+            {/* Phone book — right (all users) */}
+            <div className="absolute" style={{ right: 220, top: 80 }}>
               <PhoneBook
                 currentUserId={user.id}
+                variant="all"
                 onCallContact={handleCallContact}
                 onMessageContact={handleMessageContact}
+                onContactsChanged={() => setContactsRev(r => r + 1)}
+                refreshKey={contactsRev}
+              />
+            </div>
+
+            {/* Contact book — right of phone book (saved contacts) */}
+            <div className="absolute" style={{ right: 60, top: 80 }}>
+              <PhoneBook
+                currentUserId={user.id}
+                variant="saved"
+                onCallContact={handleCallContact}
+                onMessageContact={handleMessageContact}
+                onContactsChanged={() => setContactsRev(r => r + 1)}
+                refreshKey={contactsRev}
               />
             </div>
 
