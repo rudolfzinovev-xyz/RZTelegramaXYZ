@@ -24,6 +24,7 @@ export function MoreTab({
   const [confirmLogout, setConfirmLogout] = useState(false);
   const [pickerForMsg, setPickerForMsg] = useState<string | null>(null);
   const [pushStatus, setPushStatus] = useState<PushStatus | "idle" | "working">("idle");
+  const [testPushResult, setTestPushResult] = useState<string | null>(null);
 
   useEffect(() => {
     if (typeof window === "undefined" || !("Notification" in window)) {
@@ -38,6 +39,28 @@ export function MoreTab({
     setPushStatus("working");
     const s = await enablePushWithGesture();
     setPushStatus(s);
+  }
+
+  async function handleTestPush() {
+    setTestPushResult("Отправка...");
+    try {
+      const res = await fetch("/api/push/test", { method: "POST" });
+      const data = await res.json();
+      if (!data.ok) {
+        setTestPushResult(`✗ ${data.reason || "Не удалось"}`);
+        return;
+      }
+      const allOk = data.results.every((r: any) => r.ok);
+      if (allOk) {
+        setTestPushResult(`✓ Сервер отправил push на ${data.count} устройств. Если ничего не пришло — проверьте уведомления в настройках Chrome и батарейные ограничения.`);
+      } else {
+        const fail = data.results.find((r: any) => !r.ok);
+        setTestPushResult(`✗ Push отклонён: ${fail.statusCode} ${fail.body || ""}`);
+      }
+    } catch {
+      setTestPushResult("✗ Ошибка сети");
+    }
+    setTimeout(() => setTestPushResult(null), 12000);
   }
 
   return (
@@ -259,6 +282,38 @@ export function MoreTab({
             >
               Включить уведомления
             </button>
+          )}
+          {pushStatus === "subscribed" && (
+            <button
+              onClick={handleTestPush}
+              className="mt-3 w-full font-typewriter text-xs tracking-wider tap-target no-select"
+              style={{
+                background: "transparent",
+                color: "#DAA520",
+                border: "1px solid rgba(218,165,32,0.4)",
+                borderRadius: 6,
+                padding: "12px",
+                cursor: "pointer",
+                textTransform: "uppercase",
+                letterSpacing: "0.15em",
+              }}
+            >
+              Проверить push
+            </button>
+          )}
+          {testPushResult && (
+            <div
+              className="mt-3 font-courier text-[11px] leading-relaxed"
+              style={{
+                color: testPushResult.startsWith("✓") ? "#90EE90" : testPushResult.startsWith("✗") ? "#CC6666" : "#DAA520",
+                padding: "10px 12px",
+                background: "rgba(0,0,0,0.3)",
+                border: "1px solid rgba(218,165,32,0.2)",
+                borderRadius: 6,
+              }}
+            >
+              {testPushResult}
+            </div>
           )}
         </div>
       </section>
