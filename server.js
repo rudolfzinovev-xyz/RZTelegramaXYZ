@@ -49,7 +49,10 @@ const dev = process.env.NODE_ENV !== "production";
 const app = next({ dev });
 const handle = app.getRequestHandler();
 
+// In production INTERNAL_HOOK_SECRET MUST be set; in dev we accept the
+// hook without a secret so bots work without configuration.
 const INTERNAL_HOOK_SECRET = process.env.INTERNAL_HOOK_SECRET || "";
+const INTERNAL_HOOK_DEV_OK = process.env.NODE_ENV !== "production";
 
 // Forward-declared so the createServer handler can use it before the
 // io.on("connection") block populates it.
@@ -63,9 +66,11 @@ app.prepare().then(() => {
     // receiver's socket so delivery is instant.
     if (req.url === "/__internal/bot-message" && req.method === "POST") {
       try {
-        if (!INTERNAL_HOOK_SECRET || req.headers["x-internal-secret"] !== INTERNAL_HOOK_SECRET) {
-          res.writeHead(401); res.end(); return;
-        }
+        const headerSecret = req.headers["x-internal-secret"];
+        const ok = INTERNAL_HOOK_SECRET
+          ? headerSecret === INTERNAL_HOOK_SECRET
+          : INTERNAL_HOOK_DEV_OK;
+        if (!ok) { res.writeHead(401); res.end(); return; }
         let raw = "";
         for await (const chunk of req) raw += chunk;
         const { messageId } = JSON.parse(raw || "{}");

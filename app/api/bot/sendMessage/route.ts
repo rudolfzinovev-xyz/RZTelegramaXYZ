@@ -47,18 +47,22 @@ export async function POST(req: NextRequest) {
   });
 
   // Best-effort socket push via internal HTTP hook on the same process.
-  // server.js exposes /__internal/bot-message that the socket layer can
-  // forward. If unreachable, message is still in DB and arrives on next
-  // re-sync at the recipient.
-  const internalUrl = process.env.INTERNAL_HOOK_URL || "http://127.0.0.1:" + (process.env.PORT || 3000) + "/__internal/bot-message";
-  const internalSecret = process.env.INTERNAL_HOOK_SECRET || "";
-  if (internalSecret) {
-    fetch(internalUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "X-Internal-Secret": internalSecret },
-      body: JSON.stringify({ messageId: message.id }),
-    }).catch(() => { /* fall back to DB-only delivery */ });
+  // server.js exposes /__internal/bot-message which the socket layer
+  // forwards as a normal `message:receive` to the recipient.
+  // In dev the secret is optional; in production server.js will reject
+  // a hook call without a matching secret.
+  const internalUrl =
+    process.env.INTERNAL_HOOK_URL ||
+    "http://127.0.0.1:" + (process.env.PORT || 3000) + "/__internal/bot-message";
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (process.env.INTERNAL_HOOK_SECRET) {
+    headers["X-Internal-Secret"] = process.env.INTERNAL_HOOK_SECRET;
   }
+  fetch(internalUrl, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ messageId: message.id }),
+  }).catch(() => { /* fall back to DB-only delivery */ });
 
   return NextResponse.json({ ok: true, message });
 }

@@ -263,8 +263,13 @@ export function PhoneBook({
                           {contact.line != null && !contact.isBot && (
                             <div className="font-courier text-xs font-bold" style={{ color: "#DAA520" }}>ЛИНИЯ {contact.line}</div>
                           )}
-                          {contact.isBot && (
-                            <div className="font-courier text-xs font-bold" style={{ color: "#1a5a1a" }}>СЛУЖЕБНАЯ ЛИНИЯ 0</div>
+                          {contact.isBot && contact.line != null && (
+                            <div
+                              className="font-courier text-xs font-bold"
+                              style={{ color: contact.line === 0 ? "#1a5a1a" : "#DAA520" }}
+                            >
+                              {contact.line === 0 ? "СЛУЖЕБНАЯ ЛИНИЯ 0" : `ЛИНИЯ ${contact.line}`}
+                            </div>
                           )}
                           {contact.bio && (
                             <div

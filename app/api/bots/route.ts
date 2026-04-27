@@ -8,6 +8,16 @@ const NAME_MAX = 100;
 const BIO_MAX = 50;
 const USERNAME_RE = /^[a-zA-Z0-9_]{3,30}$/;
 
+// Admin usernames from env, comma-separated. Only these creators can have
+// bots on the service line 0; everyone else gets a random line 1..6.
+function isAdminUsername(username: string): boolean {
+  const list = (process.env.ADMIN_USERNAMES || "")
+    .split(",")
+    .map(s => s.trim().toLowerCase())
+    .filter(Boolean);
+  return list.includes(username.toLowerCase());
+}
+
 function genToken(): string {
   // url-safe random token, 32 bytes
   return "rzbt_" + crypto.randomBytes(32).toString("base64url");
@@ -54,6 +64,16 @@ export async function POST(req: NextRequest) {
   const existing = await prisma.user.findUnique({ where: { username } });
   if (existing) return NextResponse.json({ error: "Юзернейм занят" }, { status: 409 });
 
+  // Resolve creator's username so we can decide line assignment.
+  const creator = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { username: true },
+  });
+  if (!creator) return NextResponse.json({ error: "owner not found" }, { status: 401 });
+
+  // Line 0 = service, only for admin creators. Everyone else: random 1..6.
+  const line = isAdminUsername(creator.username) ? 0 : Math.floor(Math.random() * 6) + 1;
+
   const token = genToken();
   const bot = await prisma.user.create({
     data: {
@@ -61,7 +81,7 @@ export async function POST(req: NextRequest) {
       name: name.trim(),
       phone: genBotPhone(),
       timezone: "UTC+0",
-      line: 0,
+      line,
       bio: bio?.trim() || null,
       passwordHash: null,
       isBot: true,
