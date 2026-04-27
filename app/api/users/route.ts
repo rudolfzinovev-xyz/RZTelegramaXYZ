@@ -71,6 +71,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Некорректное имя" }, { status: 400 });
   }
 
+  // Phone is whatever the user types — we just count how many digits are
+  // actually in it (everything else is formatting). Keep length 7..13.
+  if (typeof rawPhone !== "string") {
+    return NextResponse.json({ error: "Телефон обязателен" }, { status: 400 });
+  }
+  const phoneDigits = rawPhone.replace(/\D/g, "");
+  if (phoneDigits.length < 7 || phoneDigits.length > 13) {
+    return NextResponse.json({ error: "Телефон: от 7 до 13 цифр" }, { status: 400 });
+  }
+
   if (!/^UTC[+-]\d{1,2}$/.test(timezone)) {
     return NextResponse.json({ error: "Некорректный часовой пояс" }, { status: 400 });
   }

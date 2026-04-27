@@ -37,6 +37,12 @@ export default function RegisterPage() {
     e.preventDefault();
     setLoading(true);
     setError("");
+    const phoneDigits = form.phone.replace(/\D/g, "");
+    if (phoneDigits.length < 7 || phoneDigits.length > 13) {
+      setError("Телефон: от 7 до 13 цифр");
+      setLoading(false);
+      return;
+    }
     try {
       const keyPair = generateKeyPair();
       const { encryptedPrivateKey, privateKeyNonce, privateKeySalt } =
@@ -69,7 +75,7 @@ export default function RegisterPage() {
   const fields = [
     { key: "username", label: "Юзернейм", type: "text", placeholder: "ivan_petrov", hint: "3–30 символов, латиница, цифры, _" },
     { key: "name", label: "Имя", type: "text", placeholder: "Иван Иванов", hint: "" },
-    { key: "phone", label: "Номер телефона", type: "text", placeholder: "+77777777777", hint: "" },
+    { key: "phone", label: "Номер телефона", type: "text", placeholder: "+77777777777", hint: "От 7 до 13 цифр" },
     { key: "password", label: "Пароль", type: "password", placeholder: "", hint: "" },
   ];
 
