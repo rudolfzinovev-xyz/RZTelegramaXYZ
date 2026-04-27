@@ -7,24 +7,22 @@ messages and calls — the bot just acts as a UI for the per-user setting.
 
 Setup
 -----
-    export RZ_BOT_TOKEN=rzbt_...
-    export RZ_API_URL=https://your-host.example/api
-    python moderator_bot.py
+    python moderator_bot.py --token rzbt_... --api https://host/api
+or
+    RZ_BOT_TOKEN=rzbt_... RZ_API_URL=https://host/api python moderator_bot.py
 """
 
-import os
 import logging
 import urllib.parse
 import urllib.request
 import urllib.error
 import json
 
-from rztelegrama_bot import Bot, Message, BotError
+from rztelegrama_bot import Bot, Message, BotError, env_or_arg
 
 logging.basicConfig(level=logging.INFO)
 
-API_URL = os.environ.get("RZ_API_URL", "http://localhost:3000/api")
-TOKEN = os.environ["RZ_BOT_TOKEN"]
+TOKEN, API_URL = env_or_arg()
 
 bot = Bot(token=TOKEN, api_url=API_URL)
 

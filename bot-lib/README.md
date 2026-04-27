@@ -83,9 +83,10 @@ Required env:
 See `bot-lib/python/rztelegrama_bot.py`. Stdlib only — no deps.
 
 ```python
-from rztelegrama_bot import Bot
+from rztelegrama_bot import Bot, env_or_arg
 
-bot = Bot(token="rzbt_...", api_url="https://your-host/api")
+token, api = env_or_arg()
+bot = Bot(token=token, api_url=api)
 
 @bot.on_message
 def handle(msg, send):
@@ -95,8 +96,36 @@ def handle(msg, send):
 bot.run(reset_offset=True)
 ```
 
+`env_or_arg()` accepts either `--token` / `--api` CLI flags or
+`RZ_BOT_TOKEN` / `RZ_API_URL` env vars — whichever is convenient.
 `reset_offset=True` skips the backlog on first start so the bot only
 reacts to new messages.
+
+### Running several system bots
+
+Each bot is a long-running process with its own token. Two options:
+
+**PM2 (recommended for prod)** — copy
+`bot-lib/python/ecosystem.bots.config.js.example` to
+`ecosystem.bots.config.js`, paste each bot's token, then:
+
+```bash
+pm2 start ecosystem.bots.config.js
+pm2 save
+pm2 startup     # follow the printed instructions to enable on reboot
+```
+
+Adding a new bot = create it on the desktop UI → copy token → add a
+new entry to the ecosystem file → `pm2 restart ecosystem.bots.config.js`.
+
+**Plain shell** — one process per bot, each with its own token via CLI:
+
+```bash
+python moderator_bot.py  --token rzbt_AAA --api https://host/api &
+python example_echo.py    --token rzbt_BBB --api https://host/api &
+```
+
+Use `nohup` / `screen` / `tmux` to keep them alive between SSH sessions.
 
 ## Building bots in other languages
 

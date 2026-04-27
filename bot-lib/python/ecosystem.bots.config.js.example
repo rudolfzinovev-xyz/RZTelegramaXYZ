@@ -1,0 +1,43 @@
+// PM2 ecosystem file for system bots.
+//
+//   cp ecosystem.bots.config.js.example ecosystem.bots.config.js
+//   # paste real tokens, then:
+//   pm2 start ecosystem.bots.config.js
+//   pm2 save                # remember between reboots
+//   pm2 startup             # auto-start on host reboot (run output)
+//
+// Each block is one bot process — independent restarts, independent
+// logs (pm2 logs rz-mod-bot etc), independent crashes.
+
+const API_URL = "https://your-host.example/api";
+
+module.exports = {
+  apps: [
+    {
+      name: "rz-mod-bot",
+      script: "moderator_bot.py",
+      interpreter: "python3",
+      cwd: "/path/to/RZTelegramaXYZ/bot-lib/python",
+      env: {
+        RZ_BOT_TOKEN: "rzbt_REPLACE_WITH_MODERATOR_TOKEN",
+        RZ_API_URL: API_URL,
+      },
+      max_restarts: 10,
+      restart_delay: 4000,
+    },
+    {
+      name: "rz-echo-bot",
+      script: "example_echo.py",
+      interpreter: "python3",
+      cwd: "/path/to/RZTelegramaXYZ/bot-lib/python",
+      env: {
+        RZ_BOT_TOKEN: "rzbt_REPLACE_WITH_ECHO_TOKEN",
+        RZ_API_URL: API_URL,
+      },
+      max_restarts: 10,
+      restart_delay: 4000,
+    },
+    // Add more bots here as you create them. Each one gets its own
+    // unique token from the bot manager UI on the desktop.
+  ],
+};

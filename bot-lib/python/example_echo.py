@@ -1,22 +1,18 @@
 """
 Echo bot example.
 
-  $ pip install -e .   # or just put rztelegrama_bot.py next to this file
-  $ export RZ_BOT_TOKEN=rzbt_...
-  $ export RZ_API_URL=https://your-host.example/api
-  $ python example_echo.py
+Run any of:
+    python example_echo.py --token rzbt_... --api https://host/api
+    RZ_BOT_TOKEN=rzbt_... python example_echo.py
 """
 
-import os
 import logging
-from rztelegrama_bot import Bot
+from rztelegrama_bot import Bot, env_or_arg
 
 logging.basicConfig(level=logging.INFO)
 
-bot = Bot(
-    token=os.environ["RZ_BOT_TOKEN"],
-    api_url=os.environ.get("RZ_API_URL", "http://localhost:3000/api"),
-)
+token, api = env_or_arg()
+bot = Bot(token=token, api_url=api)
 
 
 @bot.on_message

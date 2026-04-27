@@ -38,6 +38,9 @@ Notes
 
 from __future__ import annotations
 
+import argparse
+import os
+import sys
 import time
 import logging
 from dataclasses import dataclass
@@ -48,6 +51,31 @@ import json
 
 
 log = logging.getLogger("rztelegrama_bot")
+
+
+def env_or_arg(default_env_token: str = "RZ_BOT_TOKEN", default_env_api: str = "RZ_API_URL"):
+    """Parse CLI args + env vars and return (token, api_url).
+
+    Precedence: --token / --api CLI flags > env vars > error.
+
+    This is what the bot scripts call so a single repo with N bot scripts
+    can be launched from PM2/systemd/whatever, each with its own
+    --token / --api, without per-bot env-var renaming gymnastics.
+
+    Example:
+        python moderator_bot.py --token rzbt_xxx --api https://host/api
+    """
+    p = argparse.ArgumentParser(add_help=False)
+    p.add_argument("--token", default=os.environ.get(default_env_token))
+    p.add_argument("--api",   default=os.environ.get(default_env_api, "http://localhost:3000/api"))
+    args, _rest = p.parse_known_args()
+    if not args.token:
+        sys.stderr.write(
+            "Bot token missing. Pass --token rzbt_... or set "
+            f"{default_env_token} env var.\n"
+        )
+        sys.exit(2)
+    return args.token, args.api
 
 
 @dataclass
