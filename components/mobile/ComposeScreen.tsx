@@ -12,7 +12,7 @@ interface Props {
   onClose: () => void;
 }
 
-type Step = "recipient" | "compose";
+type Step = "line" | "recipient" | "compose";
 
 interface Recipient {
   id: string;
@@ -21,10 +21,27 @@ interface Recipient {
   publicKey?: string | null;
 }
 
+const LINES = ["1", "2", "3", "4", "5", "6"];
+
+function playPlugSound() {
+  try {
+    const ctx = new AudioContext();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.type = "square";
+    osc.frequency.setValueAtTime(90, ctx.currentTime);
+    gain.gain.setValueAtTime(0.1, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.12);
+    osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.12);
+  } catch { /* audio not available */ }
+}
+
 export function ComposeScreen({
   currentUserId, prefilledPhone, socket, onMessageSent, onClose,
 }: Props) {
-  const [step, setStep] = useState<Step>("recipient");
+  const [step, setStep] = useState<Step>("line");
+  const [selectedLine, setSelectedLine] = useState<string | null>(null);
   const [phone, setPhone] = useState(prefilledPhone || "");
   const [recipient, setRecipient] = useState<Recipient | null>(null);
   const [lookupBusy, setLookupBusy] = useState(false);
@@ -159,7 +176,7 @@ export function ComposeScreen({
               className="font-typewriter text-xs tracking-[0.25em] uppercase"
               style={{ color: "#DAA520" }}
             >
-              {step === "recipient" ? "Новое сообщение" : "Передача"}
+              {step === "line" ? "Выбор линии" : step === "recipient" ? "Новый номер" : "Передача"}
             </div>
             {recipient && step === "compose" && (
               <div className="font-courier text-[11px] truncate" style={{ color: "#8a7050" }}>
@@ -185,11 +202,143 @@ export function ComposeScreen({
               ← Изм.
             </button>
           )}
+          {step === "recipient" && (
+            <button
+              onClick={() => { setStep("line"); }}
+              className="font-typewriter text-[10px] tap-target no-select px-2"
+              style={{
+                background: "transparent",
+                color: "#8a6a4a",
+                border: "1px solid #3a2a18",
+                borderRadius: 4,
+                cursor: "pointer",
+                letterSpacing: "0.1em",
+                textTransform: "uppercase",
+                height: 40,
+              }}
+            >
+              ← Линия
+            </button>
+          )}
         </div>
       </header>
 
       {/* Content */}
       <main className="flex-1 overflow-y-auto">
+        {step === "line" && (
+          <div className="p-5 space-y-5">
+            <div
+              style={{
+                background: "linear-gradient(180deg, #2a2a2a 0%, #1a1a1a 100%)",
+                border: "2px solid #3a3a3a",
+                borderRadius: 8,
+                padding: "16px 14px 18px",
+                boxShadow: "inset 0 2px 6px rgba(0,0,0,0.6)",
+              }}
+            >
+              <div className="flex items-baseline justify-between mb-3">
+                <span
+                  className="font-typewriter tracking-widest uppercase"
+                  style={{ color: "#DAA520", fontSize: 10 }}
+                >
+                  Коммутатор
+                </span>
+                <span
+                  className="font-courier"
+                  style={{
+                    color: selectedLine ? "#228B22" : "#8B1A1A",
+                    fontSize: 9,
+                    letterSpacing: "0.1em",
+                  }}
+                >
+                  {selectedLine ? `● ЛИНИЯ ${selectedLine}` : "○ НЕТ ЛИНИИ"}
+                </span>
+              </div>
+
+              <div
+                className="grid gap-x-3 gap-y-3"
+                style={{ gridTemplateColumns: "repeat(3, minmax(0, 1fr))" }}
+              >
+                {LINES.map(ln => {
+                  const active = selectedLine === ln;
+                  return (
+                    <button
+                      key={ln}
+                      onClick={() => { playPlugSound(); setSelectedLine(active ? null : ln); }}
+                      className="flex flex-col items-center gap-1 no-select tap-target"
+                      style={{
+                        background: "transparent",
+                        border: "none",
+                        padding: "6px 0",
+                        cursor: "pointer",
+                      }}
+                    >
+                      <div
+                        className="rounded-full flex items-center justify-center"
+                        style={{
+                          width: 44,
+                          height: 44,
+                          background: active
+                            ? "linear-gradient(135deg, #DAA520, #B8860B)"
+                            : "linear-gradient(135deg, #444, #222)",
+                          border: `2px solid ${active ? "#DAA520" : "#555"}`,
+                          boxShadow: active
+                            ? "0 0 10px rgba(218,165,32,0.6)"
+                            : "inset 0 1px 3px rgba(0,0,0,0.8)",
+                        }}
+                      >
+                        {active && (
+                          <div style={{ width: 10, height: 10, background: "#1a1008", borderRadius: "50%" }} />
+                        )}
+                      </div>
+                      <span
+                        className="font-typewriter tracking-widest"
+                        style={{
+                          fontSize: 11,
+                          color: active ? "#DAA520" : "#888",
+                          fontWeight: active ? "bold" : "normal",
+                        }}
+                      >
+                        Л{ln}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div
+                className="font-courier mt-4 text-center"
+                style={{ color: "#8a6a4a", fontSize: 10, letterSpacing: "0.05em" }}
+              >
+                Выберите линию собеседника, чтобы открыть телетайп
+              </div>
+            </div>
+
+            <motion.button
+              whileTap={{ scale: 0.96 }}
+              onClick={() => { if (selectedLine) setStep("recipient"); }}
+              disabled={!selectedLine}
+              className="w-full font-typewriter tracking-wider tap-target no-select"
+              style={{
+                background: selectedLine
+                  ? "linear-gradient(135deg, #B8860B, #DAA520)"
+                  : "#2a1a10",
+                color: selectedLine ? "#1a1008" : "#555",
+                border: "none",
+                borderRadius: 8,
+                padding: "16px",
+                fontSize: 14,
+                letterSpacing: "0.2em",
+                textTransform: "uppercase",
+                cursor: selectedLine ? "pointer" : "not-allowed",
+                fontWeight: "bold",
+              }}
+            >
+              {selectedLine ? `→ Линия ${selectedLine} · далее` : "Выберите линию"}
+            </motion.button>
+          </div>
+        )}
+
         {step === "recipient" && (
           <div className="p-5 space-y-5">
             {/* Switchboard-style frame */}
@@ -208,17 +357,17 @@ export function ComposeScreen({
                   className="font-typewriter tracking-widest uppercase"
                   style={{ color: "#DAA520", fontSize: 10 }}
                 >
-                  Коммутатор · Линия
+                  Линия {selectedLine} · Набор
                 </span>
                 <span
                   className="font-courier"
                   style={{
-                    color: lookupBusy ? "#DAA520" : "#8a6a4a",
+                    color: lookupBusy ? "#DAA520" : "#228B22",
                     fontSize: 9,
                     letterSpacing: "0.1em",
                   }}
                 >
-                  {lookupBusy ? "◐ СОЕДИНЕНИЕ…" : "○ НЕ ПОДКЛЮЧЕНО"}
+                  {lookupBusy ? "◐ СОЕДИНЕНИЕ…" : `● ЛИНИЯ ${selectedLine}`}
                 </span>
               </div>
 
