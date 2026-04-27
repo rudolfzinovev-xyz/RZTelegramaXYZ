@@ -74,8 +74,9 @@ function tryDecrypt(
   nonce: string | null | undefined,
   peerPublicKey: string | null | undefined,
 ): string {
+  if (!nonce || !peerPublicKey) return ciphertext;
   const privKey = loadPrivateKey();
-  if (!privKey || !nonce || !peerPublicKey) return "[недоступно для чтения]";
+  if (!privKey) return "[недоступно для чтения]";
   const plain = decryptMessage(ciphertext, nonce, peerPublicKey, privKey);
   return plain ?? "[ошибка расшифровки]";
 }

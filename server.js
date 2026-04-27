@@ -49,8 +49,51 @@ const dev = process.env.NODE_ENV !== "production";
 const app = next({ dev });
 const handle = app.getRequestHandler();
 
+const INTERNAL_HOOK_SECRET = process.env.INTERNAL_HOOK_SECRET || "";
+
+// Forward-declared so the createServer handler can use it before the
+// io.on("connection") block populates it.
+let userSocketsRef = null;
+let ioRef = null;
+
 app.prepare().then(() => {
-  const httpServer = createServer((req, res) => {
+  const httpServer = createServer(async (req, res) => {
+    // Internal hook: a Next API route (POST /api/bot/sendMessage) notifies
+    // us when a bot creates a message; we look it up and emit it to the
+    // receiver's socket so delivery is instant.
+    if (req.url === "/__internal/bot-message" && req.method === "POST") {
+      try {
+        if (!INTERNAL_HOOK_SECRET || req.headers["x-internal-secret"] !== INTERNAL_HOOK_SECRET) {
+          res.writeHead(401); res.end(); return;
+        }
+        let raw = "";
+        for await (const chunk of req) raw += chunk;
+        const { messageId } = JSON.parse(raw || "{}");
+        if (!messageId) { res.writeHead(400); res.end(); return; }
+        const fresh = await prisma.message.findUnique({
+          where: { id: messageId },
+          include: {
+            sender: { select: { id: true, name: true, username: true, phone: true, timezone: true, line: true, isBot: true, publicKey: true } },
+            receiver: { select: { id: true, name: true, phone: true } },
+          },
+        });
+        if (fresh && userSocketsRef && ioRef) {
+          const receiverSocketId = userSocketsRef.get(fresh.receiverId);
+          if (receiverSocketId) ioRef.to(receiverSocketId).emit("message:receive", fresh);
+          sendPushToUser(fresh.receiverId, {
+            title: `🤖 ${fresh.sender?.name || "Бот"}`,
+            body: (fresh.content || "").slice(0, 120),
+            tag: `bot-${fresh.id}`,
+            url: "/desk",
+          });
+        }
+        res.writeHead(200); res.end("ok"); return;
+      } catch (err) {
+        console.warn("[internal-hook] failed", err);
+        res.writeHead(500); res.end(); return;
+      }
+    }
+
     const parsedUrl = parse(req.url, true);
     handle(req, res, parsedUrl);
   });
@@ -67,6 +110,8 @@ app.prepare().then(() => {
 
   // userId -> socketId mapping
   const userSockets = new Map();
+  userSocketsRef = userSockets;
+  ioRef = io;
 
   io.on("connection", (socket) => {
     socket.on("register", async (userId) => {

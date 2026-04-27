@@ -7,9 +7,13 @@ interface SwitchboardProps {
   prefilledPhone?: string;
 }
 
-const LINE_SLOTS = ["1", "2", "3", "4", "5", "6"];
+const REGULAR_SLOTS = ["1", "2", "3", "4", "5", "6"];
+const SERVICE_SLOTS = ["0", "1", "2", "3", "4", "5", "6"];
+
+type Mode = "regular" | "service";
 
 export function Switchboard({ onConnect, prefilledPhone }: SwitchboardProps) {
+  const [mode, setMode] = useState<Mode>("regular");
   const [connectedSlot, setConnectedSlot] = useState<string | null>(() => {
     if (typeof window === "undefined") return null;
     return localStorage.getItem("switchboard_slot") ?? null;
@@ -76,13 +80,36 @@ export function Switchboard({ onConnect, prefilledPhone }: SwitchboardProps) {
           padding: "16px",
         }}
       >
-        <div className="font-typewriter text-xs tracking-widest uppercase text-center mb-3" style={{ color: "#DAA520" }}>
-          КОММУТАТОР — ЛИНИИ СВЯЗИ
+        <div className="font-typewriter text-xs tracking-widest uppercase text-center mb-2" style={{ color: "#DAA520" }}>
+          {mode === "service" ? "КОММУТАТОР — СЛУЖЕБНЫЙ" : "КОММУТАТОР — ЛИНИИ СВЯЗИ"}
         </div>
 
-        {/* Line slots grid — 6 lines */}
-        <div className="grid grid-cols-6 gap-3 mb-4">
-          {LINE_SLOTS.map((line) => (
+        {/* Mode toggle */}
+        <div className="grid grid-cols-2 gap-1 mb-3" style={{ background: "rgba(0,0,0,0.4)", border: "1px solid #3a3a3a", borderRadius: 4, padding: 2 }}>
+          {(["regular", "service"] as Mode[]).map(m => (
+            <button
+              key={m}
+              type="button"
+              onClick={() => { setMode(m); setConnectedSlot(null); setConnectedCable(null); localStorage.removeItem("switchboard_slot"); }}
+              className="font-typewriter text-[10px] tracking-widest uppercase"
+              style={{
+                background: mode === m ? "linear-gradient(135deg, #B8860B, #DAA520)" : "transparent",
+                color: mode === m ? "#1a1008" : "#888",
+                border: "none",
+                borderRadius: 3,
+                padding: "5px 6px",
+                cursor: "pointer",
+                fontWeight: mode === m ? "bold" : "normal",
+              }}
+            >
+              {m === "regular" ? "Линии 1–6" : "Служебная 0–6"}
+            </button>
+          ))}
+        </div>
+
+        {/* Line slots grid */}
+        <div className={mode === "service" ? "grid grid-cols-7 gap-2 mb-4" : "grid grid-cols-6 gap-3 mb-4"}>
+          {(mode === "service" ? SERVICE_SLOTS : REGULAR_SLOTS).map((line) => (
             <div
               key={line}
               className="relative flex flex-col items-center gap-1"

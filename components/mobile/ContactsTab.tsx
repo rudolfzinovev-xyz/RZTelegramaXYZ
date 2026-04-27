@@ -11,6 +11,8 @@ interface Contact {
   line?: number;
   bio?: string | null;
   isContact?: boolean;
+  isBot?: boolean;
+  botOwner?: { id: string; name: string; username: string } | null;
 }
 
 interface Props {
@@ -19,12 +21,13 @@ interface Props {
   onMessage: (contact: Contact) => void;
 }
 
-type Mode = "all" | "saved";
+type Mode = "all" | "saved" | "bots";
 
 export function ContactsTab({ currentUserId, onCall, onMessage }: Props) {
   const [mode, setMode] = useState<Mode>("all");
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [savedContacts, setSavedContacts] = useState<Contact[]>([]);
+  const [bots, setBots] = useState<Contact[]>([]);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
   const [selected, setSelected] = useState<Contact | null>(null);
@@ -33,14 +36,17 @@ export function ContactsTab({ currentUserId, onCall, onMessage }: Props) {
   const reload = useCallback(async () => {
     setLoading(true);
     try {
-      const [allRes, savedRes] = await Promise.all([
+      const [allRes, savedRes, botsRes] = await Promise.all([
         fetch(`/api/users?exclude=${currentUserId}`),
         fetch("/api/contacts"),
+        fetch("/api/bots"),
       ]);
       const allData = allRes.ok ? await allRes.json() : [];
       const savedData = savedRes.ok ? await savedRes.json() : [];
+      const botsData = botsRes.ok ? await botsRes.json() : [];
       setContacts(Array.isArray(allData) ? allData : []);
       setSavedContacts(Array.isArray(savedData) ? savedData : []);
+      setBots(Array.isArray(botsData) ? botsData : []);
     } finally {
       setLoading(false);
     }
@@ -67,7 +73,10 @@ export function ContactsTab({ currentUserId, onCall, onMessage }: Props) {
     }
   }
 
-  const list = mode === "saved" ? savedContacts : contacts;
+  const list =
+    mode === "saved" ? savedContacts :
+    mode === "bots"  ? bots :
+                       contacts;
   const savedIds = useMemo(() => new Set(savedContacts.map(s => s.id)), [savedContacts]);
 
   const filtered = useMemo(() => {
@@ -95,27 +104,27 @@ export function ContactsTab({ currentUserId, onCall, onMessage }: Props) {
         }}
       >
         <div
-          className="grid grid-cols-2 gap-1 rounded p-1"
+          className="grid grid-cols-3 gap-1 rounded p-1"
           style={{ background: "rgba(0,0,0,0.4)", border: "1px solid rgba(218,165,32,0.18)" }}
         >
-          {(["all", "saved"] as Mode[]).map(m => (
+          {(["all", "saved", "bots"] as Mode[]).map(m => (
             <button
               key={m}
               onClick={() => setMode(m)}
-              className="font-typewriter text-[11px] tap-target no-select"
+              className="font-typewriter text-[10px] tap-target no-select"
               style={{
                 background: mode === m ? "linear-gradient(135deg, #B8860B, #DAA520)" : "transparent",
                 color: mode === m ? "#1a1008" : "#8a7050",
                 border: "none",
                 borderRadius: 4,
-                padding: "8px",
+                padding: "8px 4px",
                 cursor: "pointer",
-                letterSpacing: "0.15em",
+                letterSpacing: "0.1em",
                 textTransform: "uppercase",
                 fontWeight: mode === m ? "bold" : "normal",
               }}
             >
-              {m === "all" ? `Справочник · ${contacts.length}` : `Контакты · ${savedContacts.length}`}
+              {m === "all" ? `Все · ${contacts.length}` : m === "saved" ? `Контакты · ${savedContacts.length}` : `Боты · ${bots.length}`}
             </button>
           ))}
         </div>

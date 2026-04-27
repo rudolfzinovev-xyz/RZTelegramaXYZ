@@ -11,13 +11,16 @@ interface Contact {
   line?: number;
   bio?: string | null;
   isContact?: boolean;
+  isBot?: boolean;
+  botOwner?: { id: string; name: string; username: string } | null;
 }
 
 interface PhoneBookProps {
   currentUserId: string;
-  // "all"  — every user (the справочник)
+  // "all"  — every (human) user (the справочник)
   // "saved" — only entries the user has marked as a contact
-  variant?: "all" | "saved";
+  // "bots"  — every bot in the system
+  variant?: "all" | "saved" | "bots";
   onCallContact?: (contact: Contact) => void;
   onMessageContact?: (contact: Contact) => void;
   onContactsChanged?: () => void;
@@ -40,7 +43,10 @@ export function PhoneBook({
   const reload = useCallback(async () => {
     setLoading(true);
     try {
-      const url = variant === "saved" ? "/api/contacts" : `/api/users?exclude=${currentUserId}`;
+      const url =
+        variant === "saved" ? "/api/contacts" :
+        variant === "bots"  ? "/api/bots" :
+                              `/api/users?exclude=${currentUserId}`;
       const r = await fetch(url);
       const data = await r.json();
       setContacts(Array.isArray(data) ? data : []);
@@ -73,21 +79,30 @@ export function PhoneBook({
   }
 
   const isSaved = variant === "saved";
-  const bookColor = isSaved
+  const isBots = variant === "bots";
+  const bookColor = isBots
+    ? "linear-gradient(135deg, #2A6B3A 0%, #184a22 50%, #1e5a2e 100%)"
+    : isSaved
     ? "linear-gradient(135deg, #2A4A6B 0%, #18324a 50%, #1e3a5a 100%)"
     : "linear-gradient(135deg, #6B3A2A 0%, #4a2218 50%, #5a2e1e 100%)";
-  const spineColor = isSaved
+  const spineColor = isBots
+    ? "linear-gradient(180deg, #103820, #082a14)"
+    : isSaved
     ? "linear-gradient(180deg, #102438, #08182a)"
     : "linear-gradient(180deg, #3a1a10, #2a1008)";
-  const headerBg = isSaved
+  const headerBg = isBots
+    ? "linear-gradient(135deg, #2A6B3A, #184a22)"
+    : isSaved
     ? "linear-gradient(135deg, #2A4A6B, #18324a)"
     : "linear-gradient(135deg, #6B3A2A, #4a2218)";
-  const headerBorder = isSaved ? "2px solid #08182a" : "2px solid #3a1a10";
-  const labelLine1 = isSaved ? "КНИГА" : "ТЕЛЕФОННАЯ";
-  const labelLine2 = isSaved ? "КОНТАКТОВ" : "КНИГА";
-  const closedLabel = isSaved ? "КОНТАКТЫ" : "СПРАВОЧНИК";
-  const headerTitle = isSaved ? "Книга контактов" : "Телефонная книга";
-  const emptyText = isSaved
+  const headerBorder = isBots ? "2px solid #082a14" : isSaved ? "2px solid #08182a" : "2px solid #3a1a10";
+  const labelLine1 = isBots ? "КНИГА" : isSaved ? "КНИГА" : "ТЕЛЕФОННАЯ";
+  const labelLine2 = isBots ? "БОТОВ" : isSaved ? "КОНТАКТОВ" : "КНИГА";
+  const closedLabel = isBots ? "БОТЫ" : isSaved ? "КОНТАКТЫ" : "СПРАВОЧНИК";
+  const headerTitle = isBots ? "Книга ботов" : isSaved ? "Книга контактов" : "Телефонная книга";
+  const emptyText = isBots
+    ? "Ни одного бота. Создайте в настройках или подождите, пока кто-то добавит."
+    : isSaved
     ? "Никого не отмечено. Откройте справочник и пометьте абонента красным карандашом."
     : "Нет абонентов";
 
@@ -133,7 +148,7 @@ export function PhoneBook({
             {labelLine1}<br />{labelLine2}
           </div>
 
-          {(isSaved ? ["✦", "★", "✦", "★"] : ["А", "Б", "В", "Г"]).map((letter, i) => (
+          {(isBots ? ["⚙", "⚒", "⚙", "⚒"] : isSaved ? ["✦", "★", "✦", "★"] : ["А", "Б", "В", "Г"]).map((letter, i) => (
             <div
               key={i}
               className="absolute right-0 flex items-center justify-center font-typewriter text-[8px]"
@@ -237,11 +252,19 @@ export function PhoneBook({
                       )}
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
-                          <div className="font-typewriter text-[#1a1008] text-sm truncate">{contact.name}</div>
+                          <div className="font-typewriter text-[#1a1008] text-sm truncate">
+                            {contact.isBot && <span style={{ color: "#1a5a1a" }}>🤖 </span>}
+                            {contact.name}
+                          </div>
                           <div className="font-courier text-xs text-[#5a3a1a]">@{contact.username}</div>
-                          <div className="font-courier text-xs text-[#8a6a4a]">{contact.phone} · {contact.timezone}</div>
-                          {contact.line && (
+                          {!contact.isBot && (
+                            <div className="font-courier text-xs text-[#8a6a4a]">{contact.phone} · {contact.timezone}</div>
+                          )}
+                          {contact.line != null && !contact.isBot && (
                             <div className="font-courier text-xs font-bold" style={{ color: "#DAA520" }}>ЛИНИЯ {contact.line}</div>
+                          )}
+                          {contact.isBot && (
+                            <div className="font-courier text-xs font-bold" style={{ color: "#1a5a1a" }}>СЛУЖЕБНАЯ ЛИНИЯ 0</div>
                           )}
                           {contact.bio && (
                             <div
@@ -251,15 +274,22 @@ export function PhoneBook({
                               «{contact.bio}»
                             </div>
                           )}
+                          {contact.isBot && contact.botOwner && (
+                            <div className="font-courier text-[10px]" style={{ color: "#5a3a1a", marginTop: 2 }}>
+                              автор: @{contact.botOwner.username}
+                            </div>
+                          )}
                         </div>
                         <div className="flex flex-col gap-1 flex-shrink-0">
-                          <button
-                            onClick={() => { onCallContact?.(contact); setOpen(false); }}
-                            className="px-2 py-1 text-[10px] font-typewriter tracking-wider uppercase"
-                            style={{ background: "linear-gradient(135deg, #1a5a1a, #0a3a0a)", color: "#90EE90", border: "none", borderRadius: "3px", cursor: "pointer", whiteSpace: "nowrap" }}
-                          >
-                            Звонок
-                          </button>
+                          {!contact.isBot && (
+                            <button
+                              onClick={() => { onCallContact?.(contact); setOpen(false); }}
+                              className="px-2 py-1 text-[10px] font-typewriter tracking-wider uppercase"
+                              style={{ background: "linear-gradient(135deg, #1a5a1a, #0a3a0a)", color: "#90EE90", border: "none", borderRadius: "3px", cursor: "pointer", whiteSpace: "nowrap" }}
+                            >
+                              Звонок
+                            </button>
+                          )}
                           <button
                             onClick={() => { onMessageContact?.(contact); setOpen(false); }}
                             className="px-2 py-1 text-[10px] font-typewriter tracking-wider uppercase"
@@ -267,22 +297,24 @@ export function PhoneBook({
                           >
                             Телетайп
                           </button>
-                          <button
-                            onClick={() => toggleSaved(contact)}
-                            disabled={busyId === contact.id}
-                            className="px-2 py-1 text-[10px] font-typewriter tracking-wider uppercase"
-                            style={{
-                              background: marked ? "rgba(196,58,42,0.12)" : "transparent",
-                              color: "#c43a2a",
-                              border: "1px solid #c43a2a",
-                              borderRadius: "3px",
-                              cursor: busyId === contact.id ? "wait" : "pointer",
-                              whiteSpace: "nowrap",
-                            }}
-                            title={marked ? "Убрать из контактов" : "Отметить красным карандашом"}
-                          >
-                            {marked ? "✕ Убрать" : "✎ В контакты"}
-                          </button>
+                          {!contact.isBot && (
+                            <button
+                              onClick={() => toggleSaved(contact)}
+                              disabled={busyId === contact.id}
+                              className="px-2 py-1 text-[10px] font-typewriter tracking-wider uppercase"
+                              style={{
+                                background: marked ? "rgba(196,58,42,0.12)" : "transparent",
+                                color: "#c43a2a",
+                                border: "1px solid #c43a2a",
+                                borderRadius: "3px",
+                                cursor: busyId === contact.id ? "wait" : "pointer",
+                                whiteSpace: "nowrap",
+                              }}
+                              title={marked ? "Убрать из контактов" : "Отметить красным карандашом"}
+                            >
+                              {marked ? "✕ Убрать" : "✎ В контакты"}
+                            </button>
+                          )}
                         </div>
                       </div>
                     </motion.div>

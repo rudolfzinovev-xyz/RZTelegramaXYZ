@@ -11,8 +11,8 @@ function normalizePhone(raw: string): string {
   return raw;
 }
 
-// GET /api/users — all users (exclude ?exclude=id)
-// GET /api/users?phone=xxx — lookup by phone (normalized)
+// GET /api/users — all users (exclude ?exclude=id), bots filtered out
+// GET /api/users?phone=xxx — lookup by phone (normalized), bots filtered out
 export async function GET(req: NextRequest) {
   const raw = req.nextUrl.searchParams.get("phone");
   const exclude = req.nextUrl.searchParams.get("exclude");
@@ -21,14 +21,14 @@ export async function GET(req: NextRequest) {
     const phone = normalizePhone(raw);
     const user = await prisma.user.findUnique({
       where: { phone },
-      select: { id: true, name: true, username: true, phone: true, timezone: true, line: true, bio: true, publicKey: true },
+      select: { id: true, name: true, username: true, phone: true, timezone: true, line: true, bio: true, isBot: true, publicKey: true },
     });
-    if (!user) return NextResponse.json({ error: "not found" }, { status: 404 });
+    if (!user || user.isBot) return NextResponse.json({ error: "not found" }, { status: 404 });
     return NextResponse.json(user);
   }
 
   const users = await prisma.user.findMany({
-    where: exclude ? { id: { not: exclude } } : undefined,
+    where: { isBot: false, ...(exclude ? { id: { not: exclude } } : {}) },
     select: { id: true, name: true, username: true, phone: true, timezone: true, line: true, bio: true, publicKey: true },
     orderBy: { name: "asc" },
   });

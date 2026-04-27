@@ -15,8 +15,13 @@ model User {
   timezone     String
   line         Int      @default(1)
   bio          String?
-  passwordHash String
+  passwordHash String?
   createdAt    DateTime @default(now())
+
+  isBot       Boolean  @default(false)
+  botOwnerId  String?
+  botOwner    User?    @relation("ownedBots", fields: [botOwnerId], references: [id], onDelete: SetNull)
+  ownedBots   User[]   @relation("ownedBots")
 
   publicKey           String?
   encryptedPrivateKey String?
@@ -29,6 +34,17 @@ model User {
   pushSubscriptions PushSubscription[]
   contactsAdded    Contact[] @relation("contactsOwner")
   contactsBy       Contact[] @relation("contactsTarget")
+  botToken         BotToken?
+}
+
+model BotToken {
+  id        String   @id @default(cuid())
+  botId     String   @unique
+  bot       User     @relation(fields: [botId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  createdAt DateTime @default(now())
+
+  @@index([token])
 }
 
 model Contact {

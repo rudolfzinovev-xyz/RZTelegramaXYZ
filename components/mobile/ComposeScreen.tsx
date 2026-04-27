@@ -19,6 +19,7 @@ interface Recipient {
   name: string;
   phone: string;
   publicKey?: string | null;
+  isBot?: boolean;
 }
 
 const LINES = ["1", "2", "3", "4", "5", "6"];
@@ -108,22 +109,28 @@ export function ComposeScreen({
     setSending(true);
     setError("");
     try {
-      if (!recipient.publicKey) {
-        setError("У получателя нет ключа шифрования");
-        setSending(false);
-        return;
+      let payload: { receiverId: string; content: string; nonce: string | null };
+      if (recipient.isBot) {
+        payload = { receiverId: recipient.id, content: text.trim(), nonce: null };
+      } else {
+        if (!recipient.publicKey) {
+          setError("У получателя нет ключа шифрования");
+          setSending(false);
+          return;
+        }
+        const privKey = loadPrivateKey();
+        if (!privKey) {
+          setError("Ключ не загружен — войдите заново");
+          setSending(false);
+          return;
+        }
+        const { content, nonce } = encryptMessage(text.trim(), recipient.publicKey, privKey);
+        payload = { receiverId: recipient.id, content, nonce };
       }
-      const privKey = loadPrivateKey();
-      if (!privKey) {
-        setError("Ключ не загружен — войдите заново");
-        setSending(false);
-        return;
-      }
-      const { content, nonce } = encryptMessage(text.trim(), recipient.publicKey, privKey);
       const res = await fetch("/api/messages", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ receiverId: recipient.id, content, nonce }),
+        body: JSON.stringify(payload),
       });
       if (!res.ok) { setError("Ошибка отправки"); setSending(false); return; }
       const message = await res.json();

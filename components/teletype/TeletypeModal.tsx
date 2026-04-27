@@ -20,7 +20,7 @@ type Step = "switchboard" | "typewriter";
 export function TeletypeModal({ open, onClose, currentUserId, onMessageSent, prefilledPhone, socket }: TeletypeModalProps) {
   const [step, setStep] = useState<Step>("switchboard");
   const [recipientPhone, setRecipientPhone] = useState(prefilledPhone || "");
-  const [recipientInfo, setRecipientInfo] = useState<{ id: string; name: string; phone: string; publicKey?: string | null } | null>(null);
+  const [recipientInfo, setRecipientInfo] = useState<{ id: string; name: string; phone: string; publicKey?: string | null; isBot?: boolean } | null>(null);
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
@@ -80,22 +80,29 @@ export function TeletypeModal({ open, onClose, currentUserId, onMessageSent, pre
     setSending(true);
     setError("");
     try {
-      if (!recipientInfo.publicKey) {
-        setError("У получателя нет ключа шифрования");
-        setSending(false);
-        return;
+      let payload: { receiverId: string; content: string; nonce: string | null };
+      if (recipientInfo.isBot) {
+        // Bots receive plaintext (no E2E, server can read).
+        payload = { receiverId: recipientInfo.id, content: text.trim(), nonce: null };
+      } else {
+        if (!recipientInfo.publicKey) {
+          setError("У получателя нет ключа шифрования");
+          setSending(false);
+          return;
+        }
+        const privKey = loadPrivateKey();
+        if (!privKey) {
+          setError("Ключ шифрования не загружен — войдите заново");
+          setSending(false);
+          return;
+        }
+        const { content, nonce } = encryptMessage(text.trim(), recipientInfo.publicKey, privKey);
+        payload = { receiverId: recipientInfo.id, content, nonce };
       }
-      const privKey = loadPrivateKey();
-      if (!privKey) {
-        setError("Ключ шифрования не загружен — войдите заново");
-        setSending(false);
-        return;
-      }
-      const { content, nonce } = encryptMessage(text.trim(), recipientInfo.publicKey, privKey);
       const res = await fetch("/api/messages", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ receiverId: recipientInfo.id, content, nonce }),
+        body: JSON.stringify(payload),
       });
       if (!res.ok) { setError("Ошибка отправки"); setSending(false); return; }
       const message = await res.json();

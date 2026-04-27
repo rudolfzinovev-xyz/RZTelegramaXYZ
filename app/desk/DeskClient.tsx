@@ -22,6 +22,7 @@ import { TrashBin } from "@/components/desk/TrashBin";
 import { DraggableSlot } from "@/components/desk/DraggableSlot";
 import { MusicPlayerProvider } from "@/components/desk/MusicPlayerContext";
 import { MusicPlayerModal } from "@/components/desk/MusicPlayerModal";
+import { BotManager } from "@/components/bots/BotManager";
 import { decryptMessage, loadPrivateKey, clearPrivateKey } from "@/lib/crypto";
 import { ensureNotificationPermission, notify } from "@/lib/notifications";
 import { registerPush } from "@/lib/push";
@@ -74,8 +75,11 @@ function tryDecrypt(
   nonce: string | null | undefined,
   peerPublicKey: string | null | undefined,
 ): string {
+  // Bot messages are stored plaintext (nonce=null) by design — bots have
+  // no keypair. Same fallback when the peer simply has no public key.
+  if (!nonce || !peerPublicKey) return ciphertext;
   const privKey = loadPrivateKey();
-  if (!privKey || !nonce || !peerPublicKey) return "[недоступно для чтения]";
+  if (!privKey) return "[недоступно для чтения]";
   const plain = decryptMessage(ciphertext, nonce, peerPublicKey, privKey);
   return plain ?? "[ошибка расшифровки]";
 }
@@ -117,6 +121,9 @@ export function DeskClient({ user }: { user: User }) {
 
   // Bumped to force PhoneBook reload after marking/unmarking a contact.
   const [contactsRev, setContactsRev] = useState(0);
+
+  // Bot manager modal
+  const [botsOpen, setBotsOpen] = useState(false);
 
   // Bio editor
   const [bioOpen, setBioOpen] = useState(false);
@@ -518,6 +525,14 @@ export function DeskClient({ user }: { user: User }) {
             >
               ✎ Описание
             </button>
+            <button
+              onClick={() => setBotsOpen(true)}
+              title="Управление ботами"
+              className="font-typewriter text-xs px-2 py-1"
+              style={{ color: "#8a6a4a", border: "1px solid #3a2a18", borderRadius: "3px", background: "transparent", cursor: "pointer" }}
+            >
+              🤖 Боты
+            </button>
             <div
               className="w-2 h-2 rounded-full"
               style={{ background: socketReady ? "#228B22" : "#CC2200", boxShadow: socketReady ? "0 0 4px #228B22" : "none" }}
@@ -596,6 +611,16 @@ export function DeskClient({ user }: { user: User }) {
                 onCallContact={handleCallContact}
                 onMessageContact={handleMessageContact}
                 onContactsChanged={() => setContactsRev(r => r + 1)}
+                refreshKey={contactsRev}
+              />
+            </DraggableSlot>
+
+            {/* Bot book — service line directory */}
+            <DraggableSlot id="phonebook-bots" defaultX={620} defaultY={270}>
+              <PhoneBook
+                currentUserId={user.id}
+                variant="bots"
+                onMessageContact={handleMessageContact}
                 refreshKey={contactsRev}
               />
             </DraggableSlot>
@@ -689,6 +714,44 @@ export function DeskClient({ user }: { user: User }) {
           localStream={localStream}
           remoteStream={remoteStream}
         />
+
+        {/* Bot manager modal */}
+        <AnimatePresence>
+          {botsOpen && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 flex items-center justify-center"
+              style={{ background: "rgba(0,0,0,0.7)" }}
+              onClick={() => setBotsOpen(false)}
+            >
+              <motion.div
+                initial={{ scale: 0.9, y: 20 }}
+                animate={{ scale: 1, y: 0 }}
+                exit={{ scale: 0.9, y: 20 }}
+                onClick={(e) => e.stopPropagation()}
+                style={{
+                  width: 480,
+                  maxHeight: "80vh",
+                  overflowY: "auto",
+                  background: "linear-gradient(180deg, #2a1a10, #1a1008)",
+                  border: "2px solid rgba(218,165,32,0.3)",
+                  borderRadius: 8,
+                  padding: 20,
+                }}
+              >
+                <div className="flex items-baseline justify-between mb-4">
+                  <span className="font-typewriter tracking-widest uppercase" style={{ color: "#DAA520", fontSize: 12 }}>
+                    🤖 Управление ботами
+                  </span>
+                  <button onClick={() => setBotsOpen(false)} className="font-typewriter text-[#8a6a4a] hover:text-[#DAA520] text-lg">✕</button>
+                </div>
+                <BotManager />
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Bio editor modal */}
         <AnimatePresence>

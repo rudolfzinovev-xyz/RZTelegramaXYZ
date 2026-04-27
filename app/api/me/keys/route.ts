@@ -35,7 +35,7 @@ export async function PUT(req: NextRequest) {
   }
 
   const user = await prisma.user.findUnique({ where: { id: session.user.id } });
-  if (!user) return NextResponse.json({ error: "not found" }, { status: 404 });
+  if (!user || !user.passwordHash) return NextResponse.json({ error: "not found" }, { status: 404 });
 
   const ok = await bcrypt.compare(password, user.passwordHash);
   if (!ok) return NextResponse.json({ error: "wrong password" }, { status: 403 });
