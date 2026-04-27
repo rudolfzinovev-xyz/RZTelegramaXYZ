@@ -7,14 +7,13 @@ interface Track {
   src: string;
 }
 
-const TRACKS: Track[] = [
-  { title: "Трек 1", src: "/music/track1.mp3" },
-  { title: "Трек 2", src: "/music/track2.mp3" },
-  { title: "Трек 3", src: "/music/track3.mp3" },
-];
+interface MusicPlayerProps {
+  compact?: boolean;
+}
 
-export function MusicPlayer() {
+export function MusicPlayer({ compact = false }: MusicPlayerProps) {
   const [open, setOpen] = useState(false);
+  const [tracks, setTracks] = useState<Track[]>([]);
   const [trackIndex, setTrackIndex] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [volume, setVolume] = useState(0.6);
@@ -23,28 +22,38 @@ export function MusicPlayer() {
   const [noFile, setNoFile] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  const track = TRACKS[trackIndex];
+  const track = tracks[trackIndex];
+
+  // Pull track list from server — drop files into /public/music/ and
+  // they appear here on next load.
+  useEffect(() => {
+    fetch("/api/music")
+      .then(r => r.ok ? r.json() : [])
+      .then(data => { if (Array.isArray(data)) setTracks(data); })
+      .catch(() => { /* leave empty */ });
+  }, []);
 
   useEffect(() => {
     const audio = new Audio();
     audio.volume = volume;
     audioRef.current = audio;
-    audio.addEventListener("ended", () => setTrackIndex((i) => (i + 1) % TRACKS.length));
+    audio.addEventListener("ended", () => setTrackIndex((i) => tracks.length ? (i + 1) % tracks.length : 0));
     audio.addEventListener("timeupdate", () => setProgress(audio.currentTime));
     audio.addEventListener("loadedmetadata", () => { setDuration(audio.duration); setNoFile(false); });
     audio.addEventListener("error", () => { setNoFile(true); setPlaying(false); });
     return () => { audio.pause(); audio.src = ""; };
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tracks.length]);
 
   useEffect(() => {
     const audio = audioRef.current;
-    if (!audio) return;
+    if (!audio || !track) return;
     audio.src = track.src;
     audio.load();
     setProgress(0);
     setNoFile(false);
     if (playing) audio.play().catch(() => { setNoFile(true); setPlaying(false); });
-  }, [trackIndex]);
+  }, [trackIndex, track]);
 
   useEffect(() => {
     if (audioRef.current) audioRef.current.volume = volume;
@@ -85,7 +94,52 @@ export function MusicPlayer() {
         }
       `}</style>
 
-      {/* ── Desk object ── */}
+      {/* ── Compact mobile button ── */}
+      {compact ? (
+        <button
+          onClick={() => setOpen(true)}
+          className="w-full no-select tap-target"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
+            background: "linear-gradient(135deg, rgba(218,165,32,0.08), rgba(184,134,11,0.04))",
+            border: "1px solid rgba(218,165,32,0.25)",
+            borderRadius: 8,
+            padding: "12px 14px",
+            cursor: "pointer",
+          }}
+        >
+          <motion.div
+            animate={{ rotate: playing ? 360 : 0 }}
+            transition={{ duration: 2.6, repeat: playing ? Infinity : 0, ease: "linear" }}
+            style={{
+              width: 44, height: 44, borderRadius: "50%",
+              background: "radial-gradient(circle at 40% 35%, #2a2a2a 0%, #080808 100%)",
+              flexShrink: 0,
+              position: "relative",
+            }}
+          >
+            <div style={{
+              position: "absolute", top: "50%", left: "50%",
+              width: 18, height: 18, marginLeft: -9, marginTop: -9,
+              borderRadius: "50%",
+              background: "radial-gradient(circle at 40% 35%, #f0c040, #c8900a 60%, #8a5a00 100%)",
+            }} />
+          </motion.div>
+          <div className="flex-1 min-w-0 text-left">
+            <div className="font-typewriter tracking-widest uppercase" style={{ color: "#DAA520", fontSize: 10 }}>
+              Граммофон
+            </div>
+            <div className="font-courier truncate" style={{ color: playing ? "#90EE90" : "#8a7050", fontSize: 11 }}>
+              {playing && track ? `♪ ${track.title}` : track ? track.title : "Нет файлов"}
+            </div>
+          </div>
+          <span className="font-typewriter" style={{ color: "#DAA520", fontSize: 18 }}>
+            {playing ? "♪" : "▶"}
+          </span>
+        </button>
+      ) : (
       <button
         onClick={() => setOpen(true)}
         style={{ display: "block", background: "none", border: "none", padding: 0, cursor: "pointer", width: 260 }}
@@ -201,6 +255,7 @@ export function MusicPlayer() {
           </text>
         </svg>
       </button>
+      )}
 
       {/* ── Modal ── */}
       <AnimatePresence>
@@ -287,11 +342,17 @@ export function MusicPlayer() {
               {/* Track info */}
               <div className="px-5 pb-2">
                 <div className="font-typewriter text-center text-xs tracking-widest uppercase mb-1"
-                  style={{ color: noFile ? "#CC4422" : "#DAA520" }}>
-                  {noFile ? "— файл не найден —" : track.title}
+                  style={{ color: noFile || !track ? "#CC4422" : "#DAA520" }}>
+                  {!track ? "— список пуст —" : noFile ? "— файл не найден —" : track.title}
                 </div>
-                {noFile && <div className="font-courier text-center" style={{ fontSize: 9, color: "#6a4a2a" }}>Добавьте .mp3 в /public/music/</div>}
-                <div className="font-typewriter text-center" style={{ fontSize: 9, color: "#5a4020" }}>{trackIndex + 1} / {TRACKS.length}</div>
+                {(noFile || !track) && (
+                  <div className="font-courier text-center" style={{ fontSize: 9, color: "#6a4a2a" }}>
+                    Положите .mp3 в /public/music/ — название появится автоматически
+                  </div>
+                )}
+                <div className="font-typewriter text-center" style={{ fontSize: 9, color: "#5a4020" }}>
+                  {tracks.length ? `${trackIndex + 1} / ${tracks.length}` : "0 / 0"}
+                </div>
               </div>
 
               {/* Progress */}
@@ -304,7 +365,7 @@ export function MusicPlayer() {
 
               {/* Controls */}
               <div className="px-5 pb-4 flex items-center justify-center gap-6">
-                <button onClick={() => setTrackIndex((i) => (i - 1 + TRACKS.length) % TRACKS.length)}
+                <button onClick={() => setTrackIndex((i) => (i - 1 + tracks.length) % tracks.length)}
                   style={{ background: "none", border: "none", color: "#8a6030", fontSize: 20, cursor: "pointer" }}>⏮</button>
                 <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.93 }} onClick={togglePlay}
                   style={{
@@ -316,7 +377,7 @@ export function MusicPlayer() {
                   }}>
                   {playing ? "⏸" : "▶"}
                 </motion.button>
-                <button onClick={() => setTrackIndex((i) => (i + 1) % TRACKS.length)}
+                <button onClick={() => setTrackIndex((i) => (i + 1) % tracks.length)}
                   style={{ background: "none", border: "none", color: "#8a6030", fontSize: 20, cursor: "pointer" }}>⏭</button>
               </div>
 
@@ -331,7 +392,7 @@ export function MusicPlayer() {
 
               {/* Track list */}
               <div style={{ borderTop: "1px solid #3a2010", paddingBottom: 6 }}>
-                {TRACKS.map((t, i) => (
+                {tracks.map((t, i) => (
                   <button key={i}
                     onClick={() => {
                       setTrackIndex(i); setPlaying(false);

@@ -5,6 +5,7 @@ import { formatInTZ } from "@/lib/tz";
 import type { MobileMessage, MobileFolder, MobileUser } from "@/app/desk/MobileDeskClient";
 import { FolderPickerSheet } from "./FolderPickerSheet";
 import { enablePushWithGesture, type PushStatus } from "@/lib/push";
+import { MusicPlayer } from "../desk/MusicPlayer";
 
 interface Props {
   user: MobileUser;
@@ -196,6 +197,19 @@ export function MoreTab({
             ))
           )}
         </div>
+      </section>
+
+      {/* Gramophone */}
+      <section className="pt-5 px-4">
+        <div className="flex items-baseline justify-between py-2">
+          <span
+            className="font-typewriter tracking-[0.2em] uppercase"
+            style={{ color: "#DAA520", fontSize: 11 }}
+          >
+            Музыка
+          </span>
+        </div>
+        <MusicPlayer compact />
       </section>
 
       {/* About / security */}

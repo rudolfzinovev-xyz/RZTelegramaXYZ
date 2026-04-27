@@ -19,6 +19,7 @@ import { FolderStack } from "@/components/folder/FolderStack";
 import { MessageSlip } from "@/components/folder/MessageSlip";
 import { MissedInbox } from "@/components/desk/MissedInbox";
 import { TrashBin } from "@/components/desk/TrashBin";
+import { DraggableSlot } from "@/components/desk/DraggableSlot";
 import { decryptMessage, loadPrivateKey, clearPrivateKey } from "@/lib/crypto";
 import { ensureNotificationPermission, notify } from "@/lib/notifications";
 import { registerPush } from "@/lib/push";
@@ -480,6 +481,17 @@ export function DeskClient({ user }: { user: User }) {
               style={{ background: socketReady ? "#228B22" : "#CC2200", boxShadow: socketReady ? "0 0 4px #228B22" : "none" }}
             />
             <button
+              onClick={() => {
+                Object.keys(localStorage).forEach(k => { if (k.startsWith("rz:slot:")) localStorage.removeItem(k); });
+                window.location.reload();
+              }}
+              title="Сбросить расстановку объектов на столе"
+              className="font-typewriter text-xs tracking-wider uppercase px-2 py-1"
+              style={{ color: "#8a6a4a", border: "1px solid #3a2a18", borderRadius: "3px", background: "transparent", cursor: "pointer" }}
+            >
+              Сброс ⤧
+            </button>
+            <button
               onClick={() => { clearPrivateKey(); signOut({ callbackUrl: "/login" }); }}
               className="font-typewriter text-xs tracking-wider uppercase px-2 py-1"
               style={{ color: "#8a6a4a", border: "1px solid #3a2a18", borderRadius: "3px", background: "transparent", cursor: "pointer" }}
@@ -508,8 +520,8 @@ export function DeskClient({ user }: { user: User }) {
               )}
             </div>
 
-            {/* Phone — center-left */}
-            <div className="absolute" style={{ left: 360, top: 100 }}>
+            {/* Phone — center-left (draggable) */}
+            <DraggableSlot id="phone" defaultX={360} defaultY={100}>
               <RotaryPhone
                 callState={callState}
                 remoteUser={remoteUser || undefined}
@@ -520,10 +532,10 @@ export function DeskClient({ user }: { user: User }) {
                 }}
                 onOpen={() => setPhoneOpen(true)}
               />
-            </div>
+            </DraggableSlot>
 
             {/* Phone book — right (all users) */}
-            <div className="absolute" style={{ right: 220, top: 80 }}>
+            <DraggableSlot id="phonebook-all" defaultX={620} defaultY={80}>
               <PhoneBook
                 currentUserId={user.id}
                 variant="all"
@@ -532,10 +544,10 @@ export function DeskClient({ user }: { user: User }) {
                 onContactsChanged={() => setContactsRev(r => r + 1)}
                 refreshKey={contactsRev}
               />
-            </div>
+            </DraggableSlot>
 
             {/* Contact book — right of phone book (saved contacts) */}
-            <div className="absolute" style={{ right: 60, top: 80 }}>
+            <DraggableSlot id="phonebook-saved" defaultX={770} defaultY={80}>
               <PhoneBook
                 currentUserId={user.id}
                 variant="saved"
@@ -544,17 +556,17 @@ export function DeskClient({ user }: { user: User }) {
                 onContactsChanged={() => setContactsRev(r => r + 1)}
                 refreshKey={contactsRev}
               />
-            </div>
+            </DraggableSlot>
 
             {/* Desk clock — bottom right corner */}
-            <div className="absolute" style={{ right: 0, bottom: 20 }}>
+            <DraggableSlot id="clock" defaultX={780} defaultY={490}>
               <DeskClock timezone={user.timezone} />
-            </div>
+            </DraggableSlot>
 
-            {/* Gramophone — next to clock */}
-            <div className="absolute" style={{ right: 90, bottom: 0, zIndex: 20 }}>
+            {/* Gramophone */}
+            <DraggableSlot id="gramophone" defaultX={500} defaultY={400} zIndex={20}>
               <MusicPlayer />
-            </div>
+            </DraggableSlot>
 
             {/* Folders area — bottom, starts right of baskets */}
             <div className="absolute" style={{ bottom: 20, left: 255, right: 120 }}>
