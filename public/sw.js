@@ -1,7 +1,7 @@
 // Service Worker for RZTelegramaXYZ push notifications.
 // Activates immediately so updates take effect on next reload.
-// SW_VERSION bumped 2026-04-27 — adds pushsubscriptionchange handler for Android Chrome.
-const SW_VERSION = "2026-04-27.1";
+// SW_VERSION bumped 2026-04-27.2 — drop broken empty fetch handler that hung PWA install.
+const SW_VERSION = "2026-04-27.2";
 
 self.addEventListener("install", () => {
   self.skipWaiting();
@@ -10,10 +10,6 @@ self.addEventListener("install", () => {
 self.addEventListener("activate", (event) => {
   event.waitUntil(self.clients.claim());
 });
-
-// Empty fetch handler — some Android Chrome builds require this for the
-// SW to be considered fully "controlling", which in turn keeps push reliable.
-self.addEventListener("fetch", () => { /* pass-through */ });
 
 self.addEventListener("push", (event) => {
   let data = {};
