@@ -86,5 +86,24 @@ export async function POST(req: NextRequest) {
     },
   });
 
+  // If the receiver is a system bot, ping server.js so it runs the bot's
+  // handler immediately (no Python, no token, no separate process).
+  // Fire-and-forget: bot delivery is best-effort — losing this shouldn't
+  // fail the user's send.
+  if (receiver.isBot) {
+    const internalUrl =
+      process.env.INTERNAL_HOOK_URL_SYSBOT ||
+      "http://127.0.0.1:" + (process.env.PORT || 3000) + "/__internal/sysbot-dispatch";
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (process.env.INTERNAL_HOOK_SECRET) {
+      headers["X-Internal-Secret"] = process.env.INTERNAL_HOOK_SECRET;
+    }
+    fetch(internalUrl, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ messageId: message.id }),
+    }).catch(() => { /* ignore — system bot just won't reply */ });
+  }
+
   return NextResponse.json(message, { status: 201 });
 }

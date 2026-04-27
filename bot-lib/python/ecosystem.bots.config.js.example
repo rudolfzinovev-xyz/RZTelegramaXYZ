@@ -14,18 +14,6 @@ const API_URL = "https://your-host.example/api";
 module.exports = {
   apps: [
     {
-      name: "rz-mod-bot",
-      script: "moderator_bot.py",
-      interpreter: "python3",
-      cwd: "/path/to/RZTelegramaXYZ/bot-lib/python",
-      env: {
-        RZ_BOT_TOKEN: "rzbt_REPLACE_WITH_MODERATOR_TOKEN",
-        RZ_API_URL: API_URL,
-      },
-      max_restarts: 10,
-      restart_delay: 4000,
-    },
-    {
       name: "rz-echo-bot",
       script: "example_echo.py",
       interpreter: "python3",
@@ -37,7 +25,9 @@ module.exports = {
       max_restarts: 10,
       restart_delay: 4000,
     },
-    // Add more bots here as you create them. Each one gets its own
-    // unique token from the bot manager UI on the desktop.
+    // Add more user-created bots here. Each one gets its own unique
+    // token from the bot manager UI on the desktop. The system
+    // moderator bot (/help · /block · /unblock · /list) lives inside
+    // the main Node app — no entry needed here.
   ],
 };

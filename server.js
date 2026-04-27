@@ -4,6 +4,7 @@ const next = require("next");
 const { Server } = require("socket.io");
 const { PrismaClient } = require("@prisma/client");
 const webpush = require("web-push");
+const { ensureSystemBots, getSystemBotById } = require("./systemBots");
 
 const prisma = new PrismaClient();
 
@@ -73,7 +74,66 @@ const INTERNAL_HOOK_DEV_OK = process.env.NODE_ENV !== "production";
 let userSocketsRef = null;
 let ioRef = null;
 
-app.prepare().then(() => {
+// Helper: deliver an existing message row to its receiver via socket
+// (and Web Push). Used by both the bot internal-hook handler and by
+// the system-bot dispatcher.
+async function deliverBotMessageById(messageId) {
+  const fresh = await prisma.message.findUnique({
+    where: { id: messageId },
+    include: {
+      sender: { select: { id: true, name: true, username: true, phone: true, timezone: true, line: true, isBot: true, publicKey: true } },
+      receiver: { select: { id: true, name: true, phone: true } },
+    },
+  });
+  if (!fresh) return;
+  if (userSocketsRef && ioRef) {
+    const receiverSocketId = userSocketsRef.get(fresh.receiverId);
+    if (receiverSocketId) ioRef.to(receiverSocketId).emit("message:receive", fresh);
+  }
+  sendPushToUser(fresh.receiverId, {
+    title: `🤖 ${fresh.sender?.name || "Бот"}`,
+    body: (fresh.content || "").slice(0, 120),
+    tag: `bot-${fresh.id}`,
+    url: "/desk",
+  });
+}
+
+// Build the `send(text)` callback passed to a system bot's handler.
+// It saves a plaintext bot→user message and delivers it.
+function makeSystemBotSender(botId, receiverId) {
+  return async (text) => {
+    if (!text) return;
+    const reply = await prisma.message.create({
+      data: { content: String(text), nonce: null, senderId: botId, receiverId },
+      select: { id: true },
+    });
+    await deliverBotMessageById(reply.id);
+  };
+}
+
+// Run a system bot against an incoming message. Errors are logged but
+// don't crash the socket handler — a buggy bot can't take down delivery.
+async function dispatchSystemBot(bot, incomingMessage) {
+  try {
+    await bot.handle({
+      prisma,
+      message: incomingMessage,
+      send: makeSystemBotSender(bot.id, incomingMessage.senderId),
+    });
+  } catch (err) {
+    console.warn(`[sysbot:${bot.id}] handler failed`, err);
+  }
+}
+
+app.prepare().then(async () => {
+  // Make sure system bot User rows exist before we accept traffic.
+  try {
+    await ensureSystemBots(prisma);
+  } catch (err) {
+    console.warn("[sysbot] ensure failed", err);
+  }
+
+
   const httpServer = createServer(async (req, res) => {
     // Internal hook: a Next API route (POST /api/bot/sendMessage) notifies
     // us when a bot creates a message; we look it up and emit it to the
@@ -89,26 +149,36 @@ app.prepare().then(() => {
         for await (const chunk of req) raw += chunk;
         const { messageId } = JSON.parse(raw || "{}");
         if (!messageId) { res.writeHead(400); res.end(); return; }
-        const fresh = await prisma.message.findUnique({
-          where: { id: messageId },
-          include: {
-            sender: { select: { id: true, name: true, username: true, phone: true, timezone: true, line: true, isBot: true, publicKey: true } },
-            receiver: { select: { id: true, name: true, phone: true } },
-          },
-        });
-        if (fresh && userSocketsRef && ioRef) {
-          const receiverSocketId = userSocketsRef.get(fresh.receiverId);
-          if (receiverSocketId) ioRef.to(receiverSocketId).emit("message:receive", fresh);
-          sendPushToUser(fresh.receiverId, {
-            title: `🤖 ${fresh.sender?.name || "Бот"}`,
-            body: (fresh.content || "").slice(0, 120),
-            tag: `bot-${fresh.id}`,
-            url: "/desk",
-          });
-        }
+        await deliverBotMessageById(messageId);
         res.writeHead(200); res.end("ok"); return;
       } catch (err) {
         console.warn("[internal-hook] failed", err);
+        res.writeHead(500); res.end(); return;
+      }
+    }
+
+    // Sister hook: REST /api/messages POST notifies us when a user
+    // wrote to a system bot, so we can run the bot's handler even
+    // if the sender's socket isn't connected.
+    if (req.url === "/__internal/sysbot-dispatch" && req.method === "POST") {
+      try {
+        const headerSecret = req.headers["x-internal-secret"];
+        const ok = INTERNAL_HOOK_SECRET
+          ? headerSecret === INTERNAL_HOOK_SECRET
+          : INTERNAL_HOOK_DEV_OK;
+        if (!ok) { res.writeHead(401); res.end(); return; }
+        let raw = "";
+        for await (const chunk of req) raw += chunk;
+        const { messageId } = JSON.parse(raw || "{}");
+        if (!messageId) { res.writeHead(400); res.end(); return; }
+        const fresh = await prisma.message.findUnique({ where: { id: messageId } });
+        if (fresh) {
+          const bot = getSystemBotById(fresh.receiverId);
+          if (bot) await dispatchSystemBot(bot, fresh);
+        }
+        res.writeHead(200); res.end("ok"); return;
+      } catch (err) {
+        console.warn("[sysbot-dispatch] failed", err);
         res.writeHead(500); res.end(); return;
       }
     }
@@ -164,6 +234,16 @@ app.prepare().then(() => {
         // endpoint also rejects with 403 on block, this branch is mostly
         // a defense-in-depth fallback.
         if (await isBlockedDelivery(fresh.senderId, fresh.receiverId)) return;
+
+        // System bot? Skip the human delivery flow and run its handler
+        // instead. The bot's reply is written + delivered separately.
+        const sysBot = getSystemBotById(fresh.receiverId);
+        if (sysBot) {
+          io.to(socket.id).emit("message:delivered", { messageId: fresh.id });
+          dispatchSystemBot(sysBot, fresh).catch(() => { /* logged inside */ });
+          return;
+        }
+
         const receiverSocketId = userSockets.get(fresh.receiverId);
         if (receiverSocketId) {
           io.to(receiverSocketId).emit("message:receive", fresh);

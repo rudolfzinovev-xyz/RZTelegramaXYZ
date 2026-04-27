@@ -58,9 +58,22 @@ to the bot. When user A blocks user B:
 * `POST /api/bot/sendMessage` from any bot to A: also dropped if A
   blocked that bot.
 
-Bots cannot be blocked-on-behalf-of unless the user has talked to the
-bot first. See `bot-lib/python/moderator_bot.py` for a worked example
-exposing `/help`, `/block <phone>`, `/unblock <phone>`, `/list`.
+### System bots (built-in, no Python required)
+
+Some bots ship inside the main Node app and don't need a separate
+process. They're just JS handlers under `systemBots/` that the server
+ensures exist as User rows on startup, and dispatches in-process when a
+user writes to them. Currently shipped:
+
+* `@moderator` — anti-spam bot exposing `/help`, `/block <phone>`,
+  `/unblock <phone>`, `/list`. Logic lives in
+  [`systemBots/moderator.js`](../systemBots/moderator.js); it writes
+  to the same `Block` table as everything else.
+
+To add another system bot: drop a `systemBots/<name>.js` exporting
+`{ id, username, name, bio, line, handle({ prisma, message, send }) }`,
+add it to the array in `systemBots/index.js`, restart server.js — done.
+No token, no process, no port.
 
 `getUpdates` is plain HTTP polling — no websockets needed by the bot.
 The default Python lib polls every 2 s.
