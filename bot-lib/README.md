@@ -39,10 +39,28 @@ The frontend exposes bots in three places:
 
 ### Runtime API (bot token, `Authorization: Bearer rzbt_...`)
 
-| Method | Path                                     | Body                          | Notes                                              |
-|--------|------------------------------------------|-------------------------------|----------------------------------------------------|
-| GET    | `/api/bot/getUpdates?offset=&limit=`     | —                             | Returns messages addressed to the bot, oldest-first. Pass the last seen `id` as `offset`. |
-| POST   | `/api/bot/sendMessage`                   | `{ receiverId, text }`        | Sends plaintext message from the bot to `receiverId`. |
+| Method | Path                                     | Body                                            | Notes                                              |
+|--------|------------------------------------------|-------------------------------------------------|----------------------------------------------------|
+| GET    | `/api/bot/getUpdates?offset=&limit=`     | —                                               | Returns messages addressed to the bot, oldest-first. Pass the last seen `id` as `offset`. |
+| POST   | `/api/bot/sendMessage`                   | `{ receiverId, text }`                          | Sends plaintext message from the bot to `receiverId`. |
+| POST   | `/api/bot/blocks`                        | `{ initiatorId, targetPhone, action }`          | `action: "block" | "unblock"`. Bot acts on behalf of `initiatorId`; the API requires that `initiatorId` has messaged this bot at least once (so a malicious bot can't block on behalf of arbitrary users). 403 if the receiver has blocked the bot. |
+| GET    | `/api/bot/blocks?initiatorId=`           | —                                               | Returns the initiator's current block list.       |
+
+### Blocks: system-level enforcement
+
+Block lists are **per-user** — each block belongs to the initiator, not
+to the bot. When user A blocks user B:
+
+* `POST /api/messages` from B → A returns **403 "Получатель не принимает
+  сообщения от вас"**.
+* `socket.emit("call:initiate")` from B to A is dropped silently
+  (caller times out as if A were offline — no leak of block state).
+* `POST /api/bot/sendMessage` from any bot to A: also dropped if A
+  blocked that bot.
+
+Bots cannot be blocked-on-behalf-of unless the user has talked to the
+bot first. See `bot-lib/python/moderator_bot.py` for a worked example
+exposing `/help`, `/block <phone>`, `/unblock <phone>`, `/list`.
 
 `getUpdates` is plain HTTP polling — no websockets needed by the bot.
 The default Python lib polls every 2 s.

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { resolveBotFromAuth } from "@/lib/botAuth";
+import { isBlocked } from "@/lib/blocks";
 
 // POST /api/bot/sendMessage
 // Headers: Authorization: Bearer <token>
@@ -35,6 +36,11 @@ export async function POST(req: NextRequest) {
     select: { id: true, isBot: true },
   });
   if (!receiver) return NextResponse.json({ error: "receiver not found" }, { status: 404 });
+
+  // Even bots respect blocks — receiver can block a bot just like a user.
+  if (await isBlocked(bot.botId, receiverId)) {
+    return NextResponse.json({ error: "receiver has blocked this bot" }, { status: 403 });
+  }
 
   const message = await prisma.message.create({
     data: {

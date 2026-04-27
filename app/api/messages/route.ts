@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { isBlocked } from "@/lib/blocks";
 
 // GET /api/messages?with=userId — conversation history
 export async function GET(req: NextRequest) {
@@ -68,6 +69,13 @@ export async function POST(req: NextRequest) {
   }
   if (!receiver.isBot && nonce === null) {
     return NextResponse.json({ error: "messages to users must be encrypted (nonce required)" }, { status: 400 });
+  }
+
+  // Receiver has blocked the sender → silently 403 so the sender knows
+  // their message did not land. (Doesn't leak whether they're blocked or
+  // simply offline — same status as a generic "not delivered".)
+  if (await isBlocked(session.user.id, receiverId)) {
+    return NextResponse.json({ error: "Получатель не принимает сообщения от вас" }, { status: 403 });
   }
 
   const message = await prisma.message.create({

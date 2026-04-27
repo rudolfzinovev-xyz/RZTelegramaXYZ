@@ -18,6 +18,20 @@ if (pushEnabled) {
   console.warn("[push] VAPID keys missing — web push disabled");
 }
 
+// Returns true if the receiver has blocked the sender.
+async function isBlockedDelivery(senderId, receiverId) {
+  if (!senderId || !receiverId || senderId === receiverId) return false;
+  try {
+    const row = await prisma.block.findUnique({
+      where: { blockerId_blockedId: { blockerId: receiverId, blockedId: senderId } },
+      select: { id: true },
+    });
+    return !!row;
+  } catch {
+    return false;
+  }
+}
+
 async function sendPushToUser(userId, payload) {
   if (!pushEnabled || !userId) return;
   try {
@@ -144,6 +158,12 @@ app.prepare().then(() => {
           },
         });
         if (!fresh || fresh.senderId !== socket.data.userId) return;
+        // Receiver blocked sender — drop delivery silently. The message is
+        // already in DB (REST POST already succeeded if it got here), but
+        // we don't want it to appear at the recipient. Since the REST
+        // endpoint also rejects with 403 on block, this branch is mostly
+        // a defense-in-depth fallback.
+        if (await isBlockedDelivery(fresh.senderId, fresh.receiverId)) return;
         const receiverSocketId = userSockets.get(fresh.receiverId);
         if (receiverSocketId) {
           io.to(receiverSocketId).emit("message:receive", fresh);
@@ -171,9 +191,13 @@ app.prepare().then(() => {
 
     // WebRTC signaling — all handlers require a registered socket and override
     // any client-supplied callerId with the authenticated socket.data.userId.
-    socket.on("call:initiate", (data) => {
+    socket.on("call:initiate", async (data) => {
       if (!socket.data.userId || !data) return;
       const { receiverId, offer, callerName, callerPhone, callerLine } = data;
+      // Caller is blocked — pretend the receiver simply isn't online so
+      // we don't leak block state. The caller will time out and see the
+      // standard "abонент не в сети" path.
+      if (await isBlockedDelivery(socket.data.userId, receiverId)) return;
       const receiverSocketId = userSockets.get(receiverId);
       if (receiverSocketId) {
         io.to(receiverSocketId).emit("call:incoming", {
