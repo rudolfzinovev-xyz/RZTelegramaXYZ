@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
     const phone = normalizePhone(raw);
     const user = await prisma.user.findUnique({
       where: { phone },
-      select: { id: true, name: true, username: true, phone: true, timezone: true, line: true, publicKey: true },
+      select: { id: true, name: true, username: true, phone: true, timezone: true, line: true, bio: true, publicKey: true },
     });
     if (!user) return NextResponse.json({ error: "not found" }, { status: 404 });
     return NextResponse.json(user);
@@ -29,7 +29,7 @@ export async function GET(req: NextRequest) {
 
   const users = await prisma.user.findMany({
     where: exclude ? { id: { not: exclude } } : undefined,
-    select: { id: true, name: true, username: true, phone: true, timezone: true, line: true, publicKey: true },
+    select: { id: true, name: true, username: true, phone: true, timezone: true, line: true, bio: true, publicKey: true },
     orderBy: { name: "asc" },
   });
 

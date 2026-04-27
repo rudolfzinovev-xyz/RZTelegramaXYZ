@@ -25,6 +25,7 @@ export interface MobileUser {
   phone: string;
   timezone: string;
   line: number;
+  bio?: string | null;
 }
 
 export interface MobileMessage {

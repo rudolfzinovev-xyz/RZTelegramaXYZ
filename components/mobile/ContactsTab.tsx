@@ -9,6 +9,7 @@ interface Contact {
   phone: string;
   timezone: string;
   line?: number;
+  bio?: string | null;
   isContact?: boolean;
 }
 
@@ -245,6 +246,14 @@ export function ContactsTab({ currentUserId, onCall, onMessage }: Props) {
                     ЛИНИЯ {contact.line}
                   </div>
                 )}
+                {contact.bio && (
+                  <div
+                    className="font-typewriter italic truncate"
+                    style={{ color: "#a89878", fontSize: 11, marginTop: 2, lineHeight: 1.3 }}
+                  >
+                    «{contact.bio}»
+                  </div>
+                )}
               </div>
               <div
                 className="font-typewriter text-[10px] tracking-widest flex-shrink-0"
@@ -322,6 +331,14 @@ export function ContactsTab({ currentUserId, onCall, onMessage }: Props) {
                     {selected.line && (
                       <div className="font-typewriter text-[10px] font-bold" style={{ color: "#DAA520" }}>
                         ЛИНИЯ {selected.line}
+                      </div>
+                    )}
+                    {selected.bio && (
+                      <div
+                        className="font-typewriter italic"
+                        style={{ color: "#a89878", fontSize: 11, marginTop: 4, lineHeight: 1.3 }}
+                      >
+                        «{selected.bio}»
                       </div>
                     )}
                   </div>

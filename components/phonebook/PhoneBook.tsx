@@ -9,6 +9,7 @@ interface Contact {
   phone: string;
   timezone: string;
   line?: number;
+  bio?: string | null;
   isContact?: boolean;
 }
 
@@ -241,6 +242,14 @@ export function PhoneBook({
                           <div className="font-courier text-xs text-[#8a6a4a]">{contact.phone} · {contact.timezone}</div>
                           {contact.line && (
                             <div className="font-courier text-xs font-bold" style={{ color: "#DAA520" }}>ЛИНИЯ {contact.line}</div>
+                          )}
+                          {contact.bio && (
+                            <div
+                              className="font-typewriter italic"
+                              style={{ color: "#5a3a1a", fontSize: 11, marginTop: 4, lineHeight: 1.3 }}
+                            >
+                              «{contact.bio}»
+                            </div>
                           )}
                         </div>
                         <div className="flex flex-col gap-1 flex-shrink-0">

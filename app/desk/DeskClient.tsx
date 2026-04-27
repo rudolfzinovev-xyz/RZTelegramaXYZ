@@ -30,6 +30,7 @@ interface User {
   phone: string;
   timezone: string;
   line: number;
+  bio?: string | null;
 }
 
 interface MessageData {
@@ -114,6 +115,35 @@ export function DeskClient({ user }: { user: User }) {
 
   // Bumped to force PhoneBook reload after marking/unmarking a contact.
   const [contactsRev, setContactsRev] = useState(0);
+
+  // Bio editor
+  const [bioOpen, setBioOpen] = useState(false);
+  const [bioDraft, setBioDraft] = useState(user.bio ?? "");
+  const [bioSaving, setBioSaving] = useState(false);
+  const [bioErr, setBioErr] = useState<string | null>(null);
+  const BIO_MAX = 50;
+
+  async function saveBio() {
+    setBioSaving(true);
+    setBioErr(null);
+    try {
+      const res = await fetch("/api/users/me", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bio: bioDraft.trim() }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        setBioErr(err.error || "Ошибка сохранения");
+      } else {
+        // Refresh page so the new bio shows up everywhere it's used.
+        window.location.reload();
+      }
+    } catch {
+      setBioErr("Ошибка сети");
+    }
+    setBioSaving(false);
+  }
 
   // Title blink ref
   const titleBlinkRef = useRef<NodeJS.Timeout | null>(null);
@@ -475,7 +505,16 @@ export function DeskClient({ user }: { user: User }) {
           <div className="flex items-center gap-4">
             <span className="font-courier text-xs" style={{ color: "#9a8870" }}>
               {user.name} · {user.phone} · ЛИНИЯ {user.line}
+              {user.bio && <span style={{ color: "#5a3a1a", marginLeft: 6 }}>«{user.bio}»</span>}
             </span>
+            <button
+              onClick={() => { setBioDraft(user.bio ?? ""); setBioErr(null); setBioOpen(true); }}
+              title="Изменить описание"
+              className="font-typewriter text-xs px-2 py-1"
+              style={{ color: "#8a6a4a", border: "1px solid #3a2a18", borderRadius: "3px", background: "transparent", cursor: "pointer" }}
+            >
+              ✎ Описание
+            </button>
             <div
               className="w-2 h-2 rounded-full"
               style={{ background: socketReady ? "#228B22" : "#CC2200", boxShadow: socketReady ? "0 0 4px #228B22" : "none" }}
@@ -647,6 +686,88 @@ export function DeskClient({ user }: { user: User }) {
           localStream={localStream}
           remoteStream={remoteStream}
         />
+
+        {/* Bio editor modal */}
+        <AnimatePresence>
+          {bioOpen && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 flex items-center justify-center"
+              style={{ background: "rgba(0,0,0,0.7)" }}
+              onClick={() => setBioOpen(false)}
+            >
+              <motion.div
+                initial={{ scale: 0.9, y: 20 }}
+                animate={{ scale: 1, y: 0 }}
+                exit={{ scale: 0.9, y: 20 }}
+                onClick={(e) => e.stopPropagation()}
+                style={{
+                  width: 400,
+                  background: "linear-gradient(180deg, #2a1a10, #1a1008)",
+                  border: "2px solid rgba(218,165,32,0.3)",
+                  borderRadius: 8,
+                  padding: 20,
+                }}
+              >
+                <div className="flex items-baseline justify-between mb-3">
+                  <span className="font-typewriter tracking-widest uppercase" style={{ color: "#DAA520", fontSize: 12 }}>
+                    Описание
+                  </span>
+                  <span className="font-courier" style={{ color: "#6a5030", fontSize: 11 }}>
+                    {bioDraft.length}/{BIO_MAX}
+                  </span>
+                </div>
+                <input
+                  type="text"
+                  value={bioDraft}
+                  onChange={(e) => setBioDraft(e.target.value.slice(0, BIO_MAX))}
+                  placeholder="Несколько слов о себе…"
+                  maxLength={BIO_MAX}
+                  autoFocus
+                  className="w-full font-typewriter focus:outline-none"
+                  style={{
+                    background: "#0d0805",
+                    border: "1px solid #3a2a18",
+                    color: "#f5e8c8",
+                    fontSize: 14,
+                    padding: "10px 12px",
+                    borderRadius: 4,
+                  }}
+                />
+                {bioErr && (
+                  <div className="mt-2 font-courier text-xs" style={{ color: "#CC6666" }}>{bioErr}</div>
+                )}
+                <div className="flex justify-end gap-2 mt-4">
+                  <button
+                    onClick={() => setBioOpen(false)}
+                    className="font-typewriter text-xs px-4 py-2"
+                    style={{ background: "transparent", color: "#8a6a4a", border: "1px solid #3a2a18", borderRadius: 4, cursor: "pointer", letterSpacing: "0.1em", textTransform: "uppercase" }}
+                  >
+                    Отмена
+                  </button>
+                  <button
+                    onClick={saveBio}
+                    disabled={bioSaving}
+                    className="font-typewriter text-xs px-4 py-2"
+                    style={{
+                      background: "linear-gradient(135deg, #B8860B, #DAA520)",
+                      color: "#1a1008",
+                      border: "none",
+                      borderRadius: 4,
+                      cursor: bioSaving ? "default" : "pointer",
+                      letterSpacing: "0.1em",
+                      textTransform: "uppercase",
+                    }}
+                  >
+                    {bioSaving ? "..." : "Сохранить"}
+                  </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Busy signal toast */}
         <AnimatePresence>

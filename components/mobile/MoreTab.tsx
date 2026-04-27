@@ -26,6 +26,10 @@ export function MoreTab({
   const [pickerForMsg, setPickerForMsg] = useState<string | null>(null);
   const [pushStatus, setPushStatus] = useState<PushStatus | "idle" | "working">("idle");
   const [testPushResult, setTestPushResult] = useState<string | null>(null);
+  const [bio, setBio] = useState(user.bio ?? "");
+  const [bioSaving, setBioSaving] = useState(false);
+  const [bioMsg, setBioMsg] = useState<string | null>(null);
+  const BIO_MAX = 50;
 
   useEffect(() => {
     if (typeof window === "undefined" || !("Notification" in window)) {
@@ -40,6 +44,28 @@ export function MoreTab({
     setPushStatus("working");
     const s = await enablePushWithGesture();
     setPushStatus(s);
+  }
+
+  async function handleSaveBio() {
+    setBioSaving(true);
+    setBioMsg(null);
+    try {
+      const res = await fetch("/api/users/me", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bio: bio.trim() }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        setBioMsg(err.error || "Ошибка сохранения");
+      } else {
+        setBioMsg("Сохранено");
+        setTimeout(() => setBioMsg(null), 2000);
+      }
+    } catch {
+      setBioMsg("Ошибка сети");
+    }
+    setBioSaving(false);
   }
 
   async function handleTestPush() {
@@ -101,6 +127,71 @@ export function MoreTab({
                 Линия: Л{user.line} · {user.timezone}
               </div>
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Bio editor */}
+      <section className="pt-5 px-4">
+        <div className="flex items-baseline justify-between py-2">
+          <span
+            className="font-typewriter tracking-[0.2em] uppercase"
+            style={{ color: "#DAA520", fontSize: 11 }}
+          >
+            Описание
+          </span>
+          <span className="font-courier" style={{ color: "#6a5030", fontSize: 10 }}>
+            {bio.length}/{BIO_MAX}
+          </span>
+        </div>
+        <div
+          style={{
+            background: "rgba(255,255,255,0.03)",
+            border: "1px solid rgba(218,165,32,0.15)",
+            borderRadius: 6,
+            padding: "10px 12px",
+          }}
+        >
+          <input
+            type="text"
+            value={bio}
+            onChange={(e) => setBio(e.target.value.slice(0, BIO_MAX))}
+            placeholder="Несколько слов о себе…"
+            maxLength={BIO_MAX}
+            className="w-full font-typewriter focus:outline-none"
+            style={{
+              background: "#0d0805",
+              border: "1px solid #3a2a18",
+              color: "#f5e8c8",
+              fontSize: 13,
+              padding: "10px 12px",
+              borderRadius: 4,
+            }}
+          />
+          <div className="flex items-center justify-between gap-2 mt-2">
+            <span
+              className="font-courier"
+              style={{ color: bioMsg === "Сохранено" ? "#90EE90" : "#CC6666", fontSize: 10 }}
+            >
+              {bioMsg || ""}
+            </span>
+            <button
+              onClick={handleSaveBio}
+              disabled={bioSaving || bio === (user.bio ?? "")}
+              className="font-typewriter text-[11px] tap-target no-select"
+              style={{
+                background: bio !== (user.bio ?? "") ? "linear-gradient(135deg, #B8860B, #DAA520)" : "transparent",
+                color: bio !== (user.bio ?? "") ? "#1a1008" : "#5a4020",
+                border: bio !== (user.bio ?? "") ? "none" : "1px solid #3a2a18",
+                borderRadius: 4,
+                padding: "8px 14px",
+                cursor: bioSaving || bio === (user.bio ?? "") ? "default" : "pointer",
+                letterSpacing: "0.1em",
+                textTransform: "uppercase",
+              }}
+            >
+              {bioSaving ? "..." : "Сохранить"}
+            </button>
           </div>
         </div>
       </section>

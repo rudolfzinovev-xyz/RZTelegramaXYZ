@@ -12,7 +12,7 @@ export async function GET() {
     where: { ownerId: session.user.id },
     include: {
       contact: {
-        select: { id: true, name: true, username: true, phone: true, timezone: true, line: true, publicKey: true },
+        select: { id: true, name: true, username: true, phone: true, timezone: true, line: true, bio: true, publicKey: true },
       },
     },
     orderBy: { createdAt: "desc" },
